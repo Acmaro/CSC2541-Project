@@ -1,0 +1,10 @@
+name: csc2541
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11
+  - rdkit>=2025.09        # cheminformatics: fingerprints, BRICS, descriptors
+  - numpy>=2.4            # array operations
+  - pandas>=3.0           # CSV I/O
+  - tqdm>=4.67            # progress bars
