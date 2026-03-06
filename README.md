@@ -31,7 +31,7 @@ Build and start the container once:
 
 ```bash
 docker build -f docker/Dockerfile -t prexsyn-api docker/
-docker run -d --name prexsyn -p 8011:8011 prexsyn-api
+docker run -d --name prexsyn --restart unless-stopped -p 8011:8011 prexsyn-api
 ```
 
 Subsequent runs:
