@@ -18,12 +18,23 @@ ChEMBL download → filter → sample → featurize → generation API → score
 
 ## Setup
 
+**Python environment (pipeline):**
+
 ```bash
 conda env create -f environment.yml
 conda activate csc2541
 ```
 
-The inference server must be running as a Docker container on port 8011:
+**Inference server (Docker):**
+
+Build and start the container once:
+
+```bash
+docker build -f docker/Dockerfile -t prexsyn-api docker/
+docker run -d --name prexsyn -p 8011:8011 prexsyn-api
+```
+
+Subsequent runs:
 
 ```bash
 docker start prexsyn

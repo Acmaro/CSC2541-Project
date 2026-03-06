@@ -1,0 +1,38 @@
+FROM mambaorg/micromamba:2.5.0
+
+ENV MAMBA_DOCKERFILE_ACTIVATE=1
+ARG MAMBA_DOCKERFILE_ACTIVATE=1
+
+# Base dependencies
+RUN micromamba install --yes -c conda-forge \
+    python=3.13 \
+    git \
+    curl \
+    && micromamba clean --all --yes
+
+# PrexSyn engine (conda)
+RUN micromamba install --yes luost26::prexsyn-engine \
+    && micromamba clean --all --yes
+
+# Download pinned PrexSyn source
+ARG PREXSYN_COMMIT=7b1e984
+RUN mkdir -p /home/mambauser/tmp/
+RUN curl -fL "https://github.com/luost26/prexsyn/archive/${PREXSYN_COMMIT}.tar.gz" -o /home/mambauser/tmp/prexsyn.tar.gz
+RUN mkdir -p /home/mambauser/prexsyn \
+    && tar -xzf /home/mambauser/tmp/prexsyn.tar.gz -C /home/mambauser/prexsyn --strip-components=1
+
+WORKDIR /home/mambauser/prexsyn
+
+# Python extras
+RUN pip install --no-cache-dir .[dev,eval]
+RUN pip install --no-cache-dir fastapi uvicorn
+
+# Download model + chemical space (HuggingFace)
+RUN pip install huggingface_hub
+RUN python -c "from huggingface_hub import snapshot_download; snapshot_download(repo_id='luost26/prexsyn-data', repo_type='dataset', local_dir='data', local_dir_use_symlinks=False, revision='main')"
+
+# API app
+COPY app.py /home/mambauser/prexsyn/app.py
+
+EXPOSE 8011
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8011"]
