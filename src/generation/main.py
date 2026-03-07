@@ -151,7 +151,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_samp = sub.add_parser("sample", help="Batch-generate analogs via the PrexSyn API")
     p_samp.add_argument("--npz",         type=pathlib.Path, default=FEATURES_NPZ)
     p_samp.add_argument("--output",      type=pathlib.Path, default=SAMPLES_JSON)
-    p_samp.add_argument("--url",         type=str,          default="http://localhost:8011/sample")
+    p_samp.add_argument("--url",         type=str,          default="http://100.65.172.100:8011/sample")
     p_samp.add_argument("--num-samples", type=int,          default=64)
     p_samp.add_argument("--limit",       type=int,          default=None,
                         help="Only process the first N molecules (for testing)")
@@ -170,7 +170,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_all = sub.add_parser("all", help="Run the full pipeline end-to-end")
     p_all.add_argument("--num-molecules", type=int, default=1000)
     p_all.add_argument("--seed",          type=int, default=42)
-    p_all.add_argument("--url",           type=str, default="http://localhost:8011/sample")
+    p_all.add_argument("--url",           type=str, default="http://100.65.172.100:8011/sample")
     p_all.add_argument("--num-samples",   type=int, default=64)
     p_all.set_defaults(func=cmd_all)
 

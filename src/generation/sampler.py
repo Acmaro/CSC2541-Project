@@ -11,7 +11,7 @@ from typing import Any
 import numpy as np
 from tqdm import tqdm
 
-DEFAULT_URL = "http://localhost:8011/sample"
+DEFAULT_URL = "http://100.65.172.100:8011/sample"
 DEFAULT_NUM_SAMPLES = 64
 
 
