@@ -1,5 +1,5 @@
 """
-run.py — End-to-end Lib-INVENT fingerprint-mutation pipeline.
+run.py — End-to-end Lib-INVENT fingerprint-modification pipeline.
 
 Usage (from the project root, with lib-invent conda env active):
 
@@ -145,7 +145,7 @@ def _smiles_column(rows: list[dict]) -> str:
 # ---------------------------------------------------------------------------
 
 def main():
-    parser = argparse.ArgumentParser(description="Lib-INVENT fingerprint-mutation pipeline")
+    parser = argparse.ArgumentParser(description="Lib-INVENT fingerprint-modification pipeline")
     parser.add_argument("--input",   required=True, help="Input SMILES to mutate")
     parser.add_argument("--target",  required=True, help="Target SMILES (fingerprint reference)")
     parser.add_argument("--run-dir", default="runs/default", help="Output directory")

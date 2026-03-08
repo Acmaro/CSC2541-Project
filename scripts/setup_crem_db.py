@@ -3,7 +3,7 @@ Download the CReM fragment substitution database into data/crem_db/.
 
 Downloads chembl22_sa2_hac12.db (~159 MB compressed, ~500 MB uncompressed),
 the lightest pre-built database from the CReM Zenodo record 16909329.
-Fragments have ≤ 12 heavy atoms, suitable for standard drug-like mutations.
+Fragments have ≤ 12 heavy atoms, suitable for standard drug-like modifications.
 
 Full database listing: https://zenodo.org/records/16909329
 

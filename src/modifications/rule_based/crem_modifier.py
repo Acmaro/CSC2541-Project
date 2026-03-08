@@ -1,5 +1,5 @@
 """
-CReM (Context-controlled Replacement of Matched Pairs) rule-based mutation module.
+CReM (Context-controlled Replacement of Matched Pairs) rule-based modification module.
 
 Wraps the `crem` library to provide fragment substitution based on a pre-built
 SQLite transformation database mined from ChEMBL/ZINC.
@@ -79,7 +79,7 @@ class CRemModifier:
         Returns
         -------
         list[str]
-            Up to n canonical SMILES strings. Empty list if no mutations found.
+            Up to n canonical SMILES strings. Empty list if no modifications found.
 
         Raises
         ------
