@@ -41,8 +41,8 @@ git lfs pull      # download actual model files (replaces pointer files)
 src/
   generation/          # PrexSyn generative model & Docker API
   mutations/
-    ml_based/          # Lib-INVENT (encoder-decoder RNN scaffold decoration)
-    rule_based/        # CReM (context-controlled fragment substitution)
+    ml_based/          # Lib-INVENT (implemented), JT-VAE (planned)
+    rule_based/        # CReM (implemented), mmpdb (planned)
   evaluation/          # AiZynthFinder retrosynthesis, QED/Tanimoto scoring
   utils/               # Shared preprocessing and featurization utilities
 envs/                  # Conda environment specs (env_prexsyn.yml, env_libinvent.yml)
@@ -52,11 +52,25 @@ notebooks/             # Exploratory notebooks
 docs/                  # Project documentation
 ```
 
+### Mutation Modules
+
+| Tool | Type | Status | Environment |
+|------|------|--------|-------------|
+| Lib-INVENT | ML-based (encoder-decoder RNN) | Implemented | `libinvent_env` (Python 3.7) |
+| CReM | Rule-based (fragment substitution) | Implemented | `prexsyn_env` (Python 3.11) |
+| mmpdb | Rule-based (matched molecular pairs) | Planned | `prexsyn_env` (Python 3.11) |
+| JT-VAE | ML-based (junction tree VAE) | Planned | TBD |
+
+**mmpdb** will complement CReM by providing property-directed transforms derived from matched molecular pair (MMP) analysis. Where CReM substitutes fragments based on structural context, mmpdb encodes activity cliffs and property changes observed across compound series — making it well-suited for guided optimization toward a target property profile.
+
+**JT-VAE** (Junction Tree Variational Autoencoder) will provide latent-space perturbation as an alternative to discrete fragment operations. By encoding molecules into a continuous latent space structured around junction trees, it enables smooth interpolation between molecular scaffolds — complementary to the rule-based and RL-based approaches already in the pipeline.
+
 ### Environments
 
 | Tool | Environment | Python |
 |------|-------------|--------|
-| PrexSyn, AiZynthFinder, CReM | `prexsyn_env` (`envs/env_prexsyn.yml`) | 3.11 |
+| PrexSyn, AiZynthFinder, CReM, mmpdb | `prexsyn_env` (`envs/env_prexsyn.yml`) | 3.11 |
 | Lib-INVENT | `libinvent_env` (`envs/env_libinvent.yml`) | 3.7 |
+| JT-VAE | TBD | TBD |
 
-See `src/mutations/README.md` for full mutation pipeline usage.
+See `src/mutations/README.md` for full mutation pipeline usage and implementation details.
