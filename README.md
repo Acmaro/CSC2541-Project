@@ -2,7 +2,7 @@
 
 A multi-stage computational drug discovery pipeline:
 
-**Generation (PrexSyn)** → **Mutation (Lib-INVENT, CReM)** → **Evaluation (AiZynthFinder, Scoring)**
+**Generation (PrexSyn)** → **Modification (Lib-INVENT, CReM)** → **Evaluation (AiZynthFinder, Scoring)**
 
 ---
 
@@ -40,7 +40,7 @@ git lfs pull      # download actual model files (replaces pointer files)
 ```
 src/
   generation/          # PrexSyn generative model & Docker API
-  mutations/
+  modifications/
     ml_based/          # Lib-INVENT (implemented), JT-VAE (planned)
     rule_based/        # CReM (implemented), mmpdb (planned)
   evaluation/          # AiZynthFinder retrosynthesis, QED/Tanimoto scoring
@@ -52,7 +52,7 @@ notebooks/             # Exploratory notebooks
 docs/                  # Project documentation
 ```
 
-### Mutation Modules
+### Modification Modules
 
 | Tool | Type | Status | Environment |
 |------|------|--------|-------------|
@@ -73,4 +73,4 @@ docs/                  # Project documentation
 | Lib-INVENT | `libinvent_env` (`envs/env_libinvent.yml`) | 3.7 |
 | JT-VAE | TBD | TBD |
 
-See `src/mutations/README.md` for full mutation pipeline usage and implementation details.
+See `src/modifications/README.md` for full modification pipeline usage and implementation details.

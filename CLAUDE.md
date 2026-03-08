@@ -1,6 +1,6 @@
 # Team Development & Architecture Guidelines (Project: Expanding Synthesizable Chemical Space)
 
-This repository implements a multi-stage computational drug discovery pipeline: Generation (PrexSyn) -> Mutation (Lib-INVENT, CReM) -> Evaluation (AiZynthFinder, Scoring).
+This repository implements a multi-stage computational drug discovery pipeline: Generation (PrexSyn) -> Modification (Lib-INVENT, CReM) -> Evaluation (AiZynthFinder, Scoring).
 
 ## 1. Core Principles & Workflow (Anthropic Standard)
 The AI assistant must act as a senior staff engineer and adhere to the following workflows:
@@ -12,7 +12,7 @@ The AI assistant must act as a senior staff engineer and adhere to the following
 ## 2. Strict Directory Structure
 When creating or modifying files, strictly place them in the appropriate directory under `src/`. Do not clutter the root directory.
 * `src/generation/`: Generative models (e.g., PrexSyn, Docker API).
-* `src/mutations/`: Post-generation modification algorithms.
+* `src/modifications/`: Post-generation modification algorithms.
   * `ml_based/`: ML-based algorithms (e.g., Lib-INVENT, JT-VAE).
   * `rule_based/`: Rule-based algorithms (e.g., CReM, mmpdb).
 * `src/evaluation/`: Evaluation modules (Tanimoto, QED scoring, AiZynthFinder retrosynthesis).
@@ -25,7 +25,7 @@ This repository contains mixed execution environments. Always check `envs/` befo
 * Do not introduce breaking changes across versions or forcefully integrate incompatible libraries. Use `subprocess` or API calls to bridge environments if necessary.
 
 ## 4. Sub-Module Architecture Context
-* **Lib-INVENT (`src/mutations/ml_based/Lib-INVENT/`):**
+* **Lib-INVENT (`src/modifications/ml_based/Lib-INVENT/`):**
   * Core model is an encoder-decoder RNN (`DecoratorModel`) that takes a scaffold SMILES with attachment points (e.g., `[*:0]`, `[*:1]`) and generates decorations.
   * Execution is driven by JSON configs passed to `input.py`, which dispatches to managers based on `"run_type"` (e.g., `scaffold_decorating`, `reinforcement_learning`).
 * **PrexSyn API (`src/generation/docker/`):**

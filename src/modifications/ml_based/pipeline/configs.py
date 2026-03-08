@@ -19,7 +19,7 @@ def make_rl_config(
     critic_path: str,
     output_model_path: str,
     logging_path: str,
-    job_name: str = "fingerprint_mutation",
+    job_name: str = "fingerprint_modification",
     n_steps: int = 200,
     batch_size: int = 64,
     learning_rate: float = 0.0001,

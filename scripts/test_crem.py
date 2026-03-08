@@ -14,7 +14,7 @@ from pathlib import Path
 # Allow running from project root without installing the package
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.mutations.rule_based.crem_modifier import CRemModifier
+from src.modifications.rule_based.crem_modifier import CRemModifier
 
 # A known ChEMBL drug-like molecule (sildenafil scaffold)
 SEED = "CCc1nn(C)c2ccc(cc12)C(=O)NCc3ccccc3"
