@@ -74,12 +74,57 @@ python main_test.py
 
 ---
 
-## 2. CReM (Chemically Reasonable Mutations) - *[Planned]*
+## 2. CReM (Context-controlled Replacement of Matched Pairs)
 
-**Location:** `rule_based/crem/`
+**Location:** `rule_based/crem_modifier.py`
 **Environment:** `prexsyn_env` (Python 3.11)
 
-*(Documentation placeholder: To be populated once CReM integration is complete. CReM will provide context-controlled fragment substitution based on a local database of structural transformations.)*
+CReM performs rule-based fragment substitution using a pre-built database of matched molecular pair (MMP) transformations mined from ChEMBL/ZINC. For each candidate cut in the input molecule, it extracts a SMARTS-encoded molecular context within a configurable radius and queries the database for replacements whose context matches. Only chemically consistent substitutions are returned.
+
+### Database Setup (one-time)
+
+Download the transformation database (~2 GB) from the CReM Zenodo release and place it at a path of your choice:
+
+```
+https://zenodo.org/record/4519690   ->  replacements02_sc2.db
+```
+
+Provide the path either directly to the constructor or via the `CREM_DB_PATH` environment variable:
+
+```bash
+export CREM_DB_PATH=/data/crem_db/replacements02_sc2.db
+```
+
+### Usage
+
+```python
+from src.mutations.rule_based.crem_modifier import CRemModifier
+
+# Construct once; reuse for many molecules
+M = CRemModifier(db_path="data/crem_db/replacements02_sc2.db")
+
+# Generate up to 50 canonical SMILES variants
+variants = M.modify("CCc1nn(C)c2ccc(cc12)C(=O)NCc3ccccc3", n=50)
+# variants: list[str] — up to 50 canonical SMILES strings
+```
+
+Or, relying on the environment variable:
+
+```python
+M = CRemModifier()   # reads CREM_DB_PATH automatically
+variants = M.modify("c1ccccc1", n=20)
+```
+
+### Key Parameters
+
+| Parameter  | Default | Description |
+|------------|---------|-------------|
+| `db_path`  | `None`  | Path to SQLite transformation DB (falls back to `CREM_DB_PATH`) |
+| `radius`   | `3`     | Context SMARTS match radius. Higher = more conservative mutations |
+| `min_size` | `0`     | Min heavy atoms in the replaced fragment |
+| `max_size` | `10`    | Max heavy atoms in the replaced fragment |
+| `min_inc`  | `-3`    | Min change in heavy atom count |
+| `max_inc`  | `3`     | Max change in heavy atom count |
 
 ---
 
