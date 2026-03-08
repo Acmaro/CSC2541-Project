@@ -3,3 +3,8 @@ __pycache__/
 *.pyc
 .claude/
 outputs/
+
+# Google Drive API secrets — never track these
+credentials.json
+token.json
+.credentials/
