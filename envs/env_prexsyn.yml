@@ -8,3 +8,5 @@ dependencies:
   - numpy>=2.4            # array operations
   - pandas>=3.0           # CSV I/O
   - tqdm>=4.67            # progress bars
+  - pip:
+    - crem>=0.2.10          # context-controlled fragment substitution
