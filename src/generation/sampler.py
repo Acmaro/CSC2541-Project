@@ -62,19 +62,24 @@ def run_batch(
             "source_smiles":     str(smiles_arr[i]),
             "num_samples":       num_samples,
         }
-        try:
-            req = urllib.request.Request(
-                url,
-                data=json.dumps(payload).encode(),
-                headers={"Content-Type": "application/json"},
-            )
-            resp = json.loads(urllib.request.urlopen(req, timeout=120).read())
-            results.append(resp)
-        except urllib.error.HTTPError as e:
-            tqdm.write(f"[{i}] HTTP {e.code}: {e.read().decode()[:100]}")
-            errors += 1
-        except Exception as e:
-            tqdm.write(f"[{i}] Error: {e}")
+        succeeded = False
+        for attempt in range(3):
+            try:
+                req = urllib.request.Request(
+                    url,
+                    data=json.dumps(payload).encode(),
+                    headers={"Content-Type": "application/json"},
+                )
+                resp = json.loads(urllib.request.urlopen(req, timeout=120).read())
+                results.append(resp)
+                succeeded = True
+                break
+            except urllib.error.HTTPError as e:
+                tqdm.write(f"[{i}] HTTP {e.code}: {e.read().decode()[:100]}")
+                break
+            except Exception as e:
+                tqdm.write(f"[{i}] attempt {attempt+1}/3 failed: {e}")
+        if not succeeded:
             errors += 1
 
     output.parent.mkdir(parents=True, exist_ok=True)
