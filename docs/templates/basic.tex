@@ -1,0 +1,60 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=2cm]{geometry}
+\usepackage{setspace}
+\usepackage{fontspec}
+\usepackage{xcolor}
+\usepackage{longtable}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{caption}
+
+\setmainfont{Times New Roman}
+\singlespacing
+
+% Reduce spacing
+\setlength{\parskip}{0.3em}
+\setlength{\parindent}{0pt}
+
+% Compact heading spacing and sizing
+\usepackage{titlesec}
+\titleformat*{\section}{\normalsize\bfseries}
+\titleformat*{\subsection}{\normalsize\bfseries}
+\titlespacing*{\section}{0pt}{0.4em}{0.2em}
+\titlespacing*{\subsection}{0pt}{0.3em}{0.15em}
+
+% Fix for tightlist
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+
+% Compact title
+\makeatletter
+\renewcommand{\@maketitle}{%
+  \begin{center}%
+    \let \footnote \thanks
+    {\Large\bfseries \@title \par}%
+    {\small \@author \par}%
+    {\small \@date}%
+  \end{center}%
+  \par\vspace{0.5em}}
+\makeatother
+
+\title{$title$}
+\author{$author$}
+\date{$date$}
+
+\begin{document}
+
+$if(title)$
+\maketitle
+$endif$
+
+$body$
+
+$if(references)$
+\section*{References}
+$references$
+$endif$
+
+\end{document}

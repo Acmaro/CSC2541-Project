@@ -1,0 +1,16 @@
+%% PART II: PROPOSED METHODS AND SETUP
+\section*{Proposed Methods}
+
+PrexSyn generates an initial synthesizable candidate for each property specification. Four modification methods then produce structural variants from this seed. All variants, along with a repeated-PrexSyn-sampling baseline, pass through identical synthesizability and property-conservation filters. The baseline tests whether simply drawing more samples from the generative model matches or exceeds the value of a post-generation modification layer.
+
+\textit{CReM} \cite{bib7} performs mutate, grow, and link operations using a context-constrained fragment database mined from ChEMBL. A tunable context radius controls edit scale: small radii produce conservative R-group substitutions; larger radii enable ring-system and scaffold-level changes. We benchmark CReM at multiple context radii (1, 2, 3) to characterize the locality--quality tradeoff within a single method.
+
+\textit{mmpdb} \cite{bib8} mines and applies single-site matched molecular pair transformations (e.g., methyl $\rightarrow$ chloro, phenyl $\rightarrow$ pyridyl). Rules carry empirical property-change annotations, enabling selection of transformations likely to preserve the desired profile. It is the standard tool for conservative, chemist-interpretable local edits.
+
+\textit{JT-VAE} \cite{bib9} is a variational autoencoder over junction-tree decompositions of molecular graphs. The seed is encoded into a continuous latent space; perturbation of the latent vector and decoding produces variants spanning medium-to-global edit scales.
+
+\textit{LibINVENT} \cite{bib10,bib11} preserves a molecular scaffold extracted from PrexSyn's output while exploring alternative R-group decorations via reinforcement learning steerable toward target properties.
+
+These methods span the learned/rule-based and local-to-global axes (mmpdb $\rightarrow$ CReM $\rightarrow$ JT-VAE, LibINVENT), so the benchmark is informative regardless of which strategy dominates. No prior work systematically benchmarks modification methods as post-generation complements to synthesis-aware generation. This study provides the first such comparison, including the first complementarity analysis for identifying which combinations maximize coverage.
+
+The complementarity analysis also provides the empirical basis for composing effective operators into multi-stage pipelines, chaining local edits, fragment substitutions, and latent-space exploration with synthesis filtering at every stage. No public system yet integrates these operators under unified synthesis constraints; our rankings and complementarity matrices provide the foundation for such integration.

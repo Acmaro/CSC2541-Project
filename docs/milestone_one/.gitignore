@@ -1,0 +1,13 @@
+# LaTeX compilation artifacts
+*.aux
+*.bbl
+*.blg
+*.fls
+*.fdb_latexmk
+*.log
+*.out
+*.pdf
+*.synctex.gz
+
+# macOS
+.DS_Store

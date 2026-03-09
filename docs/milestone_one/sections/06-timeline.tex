@@ -1,0 +1,10 @@
+%% Timeline to Milestone 2
+\section*{Timeline to Milestone 2}
+
+\textbf{Week 1 (Mar 9--16):} PrexSyn environment and inference setup (Tyler); AiZynthFinder integration (Jingxin); pilot saturation study, 5 specs $\times$ 4 methods $\times$ 1K variants, to determine diversity plateau (Yuma). \textit{Bottleneck: GPU access for PrexSyn inference.}
+
+\textbf{Week 2 (Mar 16--23):} Full benchmark: 100 stratified specs $\times$ 4 methods + repeated-sampling baseline. Ben leads baseline generation; all team members run parallel variant generation. \textit{Bottleneck: AiZynthFinder throughput.}
+
+\textbf{Week 3 (Mar 23--30):} Evaluation pipeline and complementarity analysis (Yuma, Tyler); figures and Milestone 2 draft (Ben, Jingxin).
+
+\textit{Bottleneck mitigation:} Spec count reduced to 100 via pre-stratified sampling; variant count capped by pilot saturation; canonical-SMILES deduplication before AiZynthFinder; parallel execution on rented multi-core compute ($\sim$80K molecules, under 1 hour on 16 cores).

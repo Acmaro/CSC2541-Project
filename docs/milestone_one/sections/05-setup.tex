@@ -1,0 +1,16 @@
+%% Experimental Setup & Baselines
+\section*{Experimental Setup \& Baselines}
+
+\textit{Baseline.} Repeated PrexSyn sampling: $N$ additional draws from the same property specification, subject to identical evaluation. This tests whether adding a modification layer outperforms simply sampling more from the generative model.
+
+\textit{Hit classification.} A variant is a hit if it is (a) synthesizable (AiZynthFinder route found) and (b) property-conserving on both axes below. Thresholds are parameters; results are reported at multiple stringency levels (e.g., Tanimoto $\geq$ 0.6, 0.7, 0.85; desirability $\geq$ 0.8).
+
+\textit{Property conservation} is assessed on two complementary axes. Substructural: ECFP4 Tanimoto similarity between variant and specification fingerprint. Physicochemical: per-descriptor deltas (MW $\pm$50 Da, CLogP $\pm$1.0, TPSA $\pm$20 Å$^2$, HBD $\pm$1, HBA $\pm$2, rotatable bonds $\pm$2) mapped to 0--1 desirability scores and aggregated by geometric mean. 3D shape and electrostatic similarity via ESPsim \cite{bib12} is reported as a supplementary diagnostic.
+
+\textit{Primary metrics.} (1) Hit rate: fraction of synthesizable variants meeting conservation thresholds. (2) Expansion factor: unique hits from modification / unique hits from baseline, the core measure of marginal value.
+
+\textit{Secondary metrics.} Chemical diversity among hits (1 $-$ mean pairwise Tanimoto); wall-clock compute cost per specification; proximity to known bioactive space (Tanimoto to ChEMBL reference molecule, diagnostic only).
+
+\textit{Complementarity.} Pairwise Jaccard overlap between method hit sets; identification of optimal 2- and 3-method combinations by total unique-hit coverage.
+
+\textit{Stratification.} All metrics reported per baseline-quality bin to reveal when post-generation modification adds the most marginal value.

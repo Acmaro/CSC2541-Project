@@ -1,0 +1,18 @@
+%% PART I: INTRODUCTION AND BACKGROUND
+\section*{Research Question \& Significance}
+
+Synthesis-aware generative models guarantee that every proposed molecule can be assembled from purchasable reagents via validated reactions, a property critical for practical drug discovery \cite{bib1}. PrexSyn \cite{bib2}, the current state of the art, generates synthesis pathways conditioned on desired molecular properties, producing candidates synthesizable by construction within the Enamine REAL chemical space \cite{bib3}. It is fast ($\sim$0.26 s per target) and reconstructs 94\% of molecules drawn from Enamine REAL, but only 28\% of the broader ChEMBL bioactive distribution \cite{bib2}. Substantial pharmacologically relevant chemistry lies beyond its reach.
+
+This coverage boundary is inherent to the paradigm: any synthesis-aware generator is bounded by its building block library and reaction templates. Retraining on a larger space shifts the boundary; repeated sampling draws from the same constrained space, yielding more candidates but no new chemical territory.
+
+We investigate whether classical molecular modification methods (fragment substitution, matched molecular pair transforms, latent-space editing, scaffold-constrained decoration) provide measurable value when composed with the frontier generative model. These methods predate generative AI, operate outside Enamine REAL, and are available as open-source tools. We benchmark four such methods on their ability to produce synthesizable, property-conserving candidates beyond what repeated PrexSyn sampling achieves. Methods are ranked by marginal value and stratified by how well PrexSyn performs alone, revealing when modification adds the most value. Pairwise complementarity analysis identifies which combinations maximize total coverage, informing pipeline design and tool selection for agent-driven molecular design.
+
+\section*{Context \& Datasets}
+
+PrexSyn \cite{bib2} generates synthesis pathways from $\sim$480K Enamine in-stock building blocks via 115 reaction templates, conditioned on molecular property specifications. We use it as a black-box generator: given a property profile, it returns synthesizable candidates within Enamine REAL.
+
+ChEMBL \cite{bib4} provides realistic property specifications. We extract computed property profiles from sampled bioactive molecules and use these as input to PrexSyn.\footnote{Exact specification format (ECFP4 fingerprints, natively accepted by PrexSyn, vs.\ the full descriptor set from PrexSyn Table 3) is under investigation and will be finalized before experiments begin.} The molecules themselves are not optimization targets; structural similarity to the ChEMBL source is reported only as a supplementary diagnostic.
+
+AiZynthFinder \cite{bib5}, trained on the USPTO reaction corpus \cite{bib6}, provides retrosynthetic analysis as our synthesizability gate. Each generated variant is checked for decomposability into purchasable Enamine building blocks via known reactions.
+
+The four modification methods draw on independent resources: CReM \cite{bib7} uses a context-constrained fragment database mined from ChEMBL; mmpdb \cite{bib8} applies matched molecular pair transformation rules; JT-VAE \cite{bib9} encodes and decodes molecules via a learned latent space; LibINVENT \cite{bib10} decorates molecular scaffolds via reinforcement learning (accessed through REINVENT4 \cite{bib11}).

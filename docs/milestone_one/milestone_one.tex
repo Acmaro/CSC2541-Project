@@ -1,0 +1,63 @@
+%% Milestone One: Expanding Synthesizable Chemical Space
+%% Benchmarking Post-Generation Molecular Modification
+%%
+%% Authors: Tyler Biswurm, Jingxin Huang, Yuma Nakamura, Ben Luo
+%% Date: March 2026
+
+\documentclass[pdflatex,sn-mathphys-num]{sn-jnl}
+
+\usepackage{graphicx}
+\usepackage{multirow}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{amsthm}
+\usepackage{mathrsfs}
+\usepackage[title]{appendix}
+\usepackage{xcolor}
+\usepackage{textcomp}
+\usepackage{manyfoot}
+\usepackage{booktabs}
+\usepackage{algorithm}
+\usepackage{algorithmicx}
+\usepackage{algpseudocode}
+\usepackage{listings}
+
+\raggedbottom
+
+\begin{document}
+
+\title{Expanding Synthesizable Chemical Space: Benchmarking Post-Generation Molecular Modification}
+
+\author*[1]{\fnm{Tyler} \sur{Biswurm}}\email{tyler.biswurm@mail.utoronto.ca}
+\author[1]{\fnm{Jingxin} \sur{Huang}}\email{jingxin.huang@mail.utoronto.ca}
+\author[1]{\fnm{Yuma} \sur{Nakamura}}\email{yuma.nakamura@mail.utoronto.ca}
+\author[1]{\fnm{Ben} \sur{Luo}}\email{ben.luo@mail.utoronto.ca}
+
+\affil*[1]{\orgdiv{Department of Computer Science}, \orgname{University of Toronto}, \orgaddress{\city{Toronto}, \country{Canada}}}
+
+\abstract{Synthesis-aware generative models like PrexSyn guarantee synthesizability but are constrained by their building-block libraries and reaction templates. We investigate whether post-generation modification methods (CReM, mmpdb, JT-VAE, LibINVENT) provide measurable value in expanding chemical coverage beyond repeated PrexSyn sampling. This work establishes the first systematic benchmark of modification methods as complements to synthesis-aware generation, with complementarity analysis to inform pipeline design for drug discovery.}
+
+\keywords{molecular generation, synthetic chemistry, drug discovery, machine learning}
+
+\maketitle
+
+%% INPUT: Sections
+\input{sections/01-intro}
+
+\newpage
+
+\input{sections/02-methods}
+
+\input{sections/03-preprocessing}
+
+\input{sections/04-diagram}
+
+\input{sections/05-setup}
+
+\input{sections/06-timeline}
+
+\newpage
+
+%% References
+\bibliography{references}
+
+\end{document}

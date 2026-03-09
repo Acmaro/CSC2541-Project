@@ -1,0 +1,8 @@
+%% Data and Preprocessing
+\section*{Data and Preprocessing}
+
+We sample 100 molecules from ChEMBL with pre-stratified difficulty: PrexSyn is first run on a larger pool to compute baseline quality scores (ECFP4 Tanimoto between best candidate and specification), then $\sim$25 molecules are drawn from each of four quality bins ($<$0.5, 0.5--0.7, 0.7--0.85, 0.85--1.0). This ensures balanced representation across difficulty levels.
+
+For each specification, PrexSyn generates 256 candidates; the highest-scoring candidate ($K=1$) seeds all modification methods, so results reflect the modification method rather than seed diversity. Each method produces up to $N$ variants; $N$ is set by a pilot saturation study (5 specs, $N=1,000$ per method) to identify the diversity plateau. Expected cap: 100--500. Variants are deduplicated by canonical SMILES before synthesizability checking via AiZynthFinder at search depth 1, with depth-2 sensitivity analysis on a 10\% subsample. Estimated total load after deduplication: $\sim$80K unique molecules, $\sim$8 core-hours.
+
+No models are trained in this study; all methods are used as pre-trained or pre-configured tools. CReM's fragment database derives from ChEMBL, the same source as our specifications. Since ChEMBL molecules serve only as property-profile sources, not reconstruction targets, this overlap reflects realistic tool usage rather than information leakage.
