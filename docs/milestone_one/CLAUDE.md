@@ -284,5 +284,5 @@ Write with clarity and rigor at every stage. A well-written proposal now prevent
 - Share this with any Claude instance (or external collaborator) before beginning editing sessions.
 - Reference the style guide section ruthlessly; it is mandatory.
 - When Claude flags methodological concerns or asks follow-up questions, treat these as outside expertise helping to strengthen the proposal.
-- Commit edits regularly with clear messages so the evolution is tracked.
+- Commit edits regularly with clear messages so the evolution is tracked. DO NOT CREDIT CLAUDE IN COMMIT MESSAGES.
 - The goal is to lock in a rigorous, clear, drug-discovery-motivated proposal by March 9 so Milestone 2 execution is unambiguous.
