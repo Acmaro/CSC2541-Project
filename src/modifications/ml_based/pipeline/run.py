@@ -17,6 +17,10 @@ Optional flags:
     --model    PATH               (pretrained model; default: reaction_based.model)
     --skip-rl                     (skip RL, run scaffold_decorating directly)
 
+Notes:
+    --target is optional. When omitted, RL fine-tuning is automatically
+    skipped (equivalent to --skip-rl) and results are printed unranked.
+
 Outputs (inside --run-dir):
     scaffolds.smi         — extracted scaffolds fed to RL
     rl_config.json        — generated RL config
@@ -147,7 +151,9 @@ def _smiles_column(rows: list[dict]) -> str:
 def main():
     parser = argparse.ArgumentParser(description="Lib-INVENT fingerprint-modification pipeline")
     parser.add_argument("--input",   required=True, help="Input SMILES to mutate")
-    parser.add_argument("--target",  required=True, help="Target SMILES (fingerprint reference)")
+    parser.add_argument("--target",  default=None,
+                        help="Target SMILES (fingerprint reference). "
+                             "Optional: if omitted, RL is skipped and results are printed unranked.")
     parser.add_argument("--run-dir", default="runs/default", help="Output directory")
     parser.add_argument("--method",  default="brics", choices=["brics", "recap", "both"])
     parser.add_argument("--n-steps", type=int,   default=200)
@@ -162,9 +168,15 @@ def main():
     run_dir = os.path.abspath(args.run_dir)
     os.makedirs(run_dir, exist_ok=True)
 
-    target_smiles = _parse_target(args.target)
-    if target_smiles != args.target:
-        print(f"[pipeline] Target parsed from ECFP4(...): {target_smiles}")
+    if args.target is not None:
+        target_smiles = _parse_target(args.target)
+        if target_smiles != args.target:
+            print(f"[pipeline] Target parsed from ECFP4(...): {target_smiles}")
+    else:
+        target_smiles = None
+        print("[pipeline] No target provided — RL will be skipped; results will be unranked.")
+        if not args.skip_rl:
+            args.skip_rl = True
 
     model_abs = os.path.abspath(args.model)
     if not os.path.exists(model_abs):
@@ -246,43 +258,73 @@ def main():
     # Primary source: scaffold_memory.csv written by the RL diversity filter
     # (contains all unique SMILES seen during training, scored).
     # Fallback: decorated.csv from scaffold_decorating.
-    print("\n[pipeline] Step 4: Ranking results by Tanimoto similarity to target")
-
     scaffold_memory_csv = os.path.join(run_dir, "logs", "rl", "scaffold_memory.csv")
-    target_fp = _ecfp4(target_smiles)
-    ranked = []
     seen: set[str] = set()
+    results: list[tuple] = []  # (sim_or_None, smi)
 
-    def _collect(csv_path: str, smiles_col: str, sep: str = ",") -> None:
-        if not os.path.exists(csv_path):
+    if target_smiles is not None:
+        print("\n[pipeline] Step 4: Ranking results by Tanimoto similarity to target")
+        target_fp = _ecfp4(target_smiles)
+
+        def _collect(csv_path: str, smiles_col: str, sep: str = ",") -> None:
+            if not os.path.exists(csv_path):
+                return
+            with open(csv_path) as f:
+                reader = csv.DictReader(f, delimiter=sep)
+                for row in reader:
+                    smi = row.get(smiles_col, "").strip()
+                    if not smi or smi == "INVALID" or smi in seen:
+                        continue
+                    seen.add(smi)
+                    sim = _tanimoto(_ecfp4(smi), target_fp)
+                    results.append((sim, smi))
+
+        _collect(scaffold_memory_csv, "SMILES", sep=",")
+        if os.path.exists(output_csv):
+            rows = _read_decorated_csv(output_csv)
+            if rows:
+                _collect(output_csv, _smiles_column(rows), sep="\t")
+
+        if not results:
+            print("[pipeline] No output molecules found.")
             return
-        with open(csv_path) as f:
-            reader = csv.DictReader(f, delimiter=sep)
-            for row in reader:
-                smi = row.get(smiles_col, "").strip()
-                if not smi or smi == "INVALID" or smi in seen:
-                    continue
-                seen.add(smi)
-                sim = _tanimoto(_ecfp4(smi), target_fp)
-                ranked.append((sim, smi))
 
-    _collect(scaffold_memory_csv, "SMILES", sep=",")
+        results.sort(reverse=True)
+        print(f"[pipeline] Total unique molecules: {len(results)}")
+        print(f"\n{'Rank':<5} {'Tanimoto':>8}  SMILES")
+        print("-" * 80)
+        for rank, (sim, smi) in enumerate(results[: args.top], 1):
+            print(f"{rank:<5} {sim:>8.4f}  {smi}")
 
-    if os.path.exists(output_csv):
-        rows = _read_decorated_csv(output_csv)
-        if rows:
-            _collect(output_csv, _smiles_column(rows), sep="\t")
+    else:
+        print("\n[pipeline] Step 4: Collecting results (no target — unranked)")
 
-    if not ranked:
-        print("[pipeline] No output molecules found.")
-        return
+        def _collect_unranked(csv_path: str, smiles_col: str, sep: str = ",") -> None:
+            if not os.path.exists(csv_path):
+                return
+            with open(csv_path) as f:
+                reader = csv.DictReader(f, delimiter=sep)
+                for row in reader:
+                    smi = row.get(smiles_col, "").strip()
+                    if not smi or smi == "INVALID" or smi in seen:
+                        continue
+                    seen.add(smi)
+                    results.append((None, smi))
 
-    ranked.sort(reverse=True)
-    print(f"[pipeline] Total unique molecules: {len(ranked)}")
-    print(f"\n{'Rank':<5} {'Tanimoto':>8}  SMILES")
-    print("-" * 80)
-    for rank, (sim, smi) in enumerate(ranked[: args.top], 1):
-        print(f"{rank:<5} {sim:>8.4f}  {smi}")
+        if os.path.exists(output_csv):
+            rows = _read_decorated_csv(output_csv)
+            if rows:
+                _collect_unranked(output_csv, _smiles_column(rows), sep="\t")
+
+        if not results:
+            print("[pipeline] No output molecules found.")
+            return
+
+        print(f"[pipeline] Total unique molecules: {len(results)}")
+        print(f"\n{'Rank':<5}  SMILES")
+        print("-" * 80)
+        for rank, (_, smi) in enumerate(results[: args.top], 1):
+            print(f"{rank:<5}  {smi}")
 
     print(f"\n[pipeline] Done. Full RL output: {scaffold_memory_csv}")
 
