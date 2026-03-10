@@ -1,0 +1,704 @@
+% scoring_v2_spec.tex
+% Formal specification of the scoring_v2 evaluation pipeline.
+% Compile with: pdflatex scoring_v2_spec.tex (twice for references)
+
+\documentclass[11pt, a4paper]{article}
+
+% ── Packages ────────────────────────────────────────────────────────────────
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{mathtools}          % dcases, coloneqq
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{xcolor}
+\usepackage[colorlinks=true, linkcolor=blue!60!black, citecolor=green!50!black]{hyperref}
+
+% ── Theorem environments ─────────────────────────────────────────────────────
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+\newtheorem{remark}{Remark}[section]
+
+% ── Operators ────────────────────────────────────────────────────────────────
+\DeclareMathOperator*{\argmax}{arg\,max}
+\newcommand{\1}[1]{\mathbf{1}\!\left[#1\right]}   % indicator
+\newcommand{\Geo}{\mathcal{G}}                      % geometric mean
+\newcommand{\Hit}{\mathcal{H}}                      % hit set
+\newcommand{\Var}{\mathcal{V}}                      % variant set
+\newcommand{\Methods}{\mathcal{M}}                  % method set
+\newcommand{\Desc}{\mathcal{D}}                     % descriptor set
+\newcommand{\fp}[1]{\phi(#1)}                       % fingerprint
+
+% ── Algorithmic settings ─────────────────────────────────────────────────────
+\algrenewcommand\algorithmicrequire{\textbf{Input:}}
+\algrenewcommand\algorithmicensure{\textbf{Output:}}
+\algnewcommand\algorithmicreturn{\textbf{return} }
+\algnewcommand\Return{\State\algorithmicreturn}
+
+% ────────────────────────────────────────────────────────────────────────────
+
+\title{%
+  \textbf{Formal Specification of the \texttt{scoring\_v2} Evaluation Pipeline}\\[0.5ex]
+  \large Expanding Synthesizable Chemical Space --- CSC2541H
+}
+\author{Tyler Biswurm \and Jingxin Huang \and Yuma Nakamura \and Ben Luo}
+\date{March 2026}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\bigskip
+
+% ════════════════════════════════════════════════════════════════════════════
+\section{Notation and Setup}
+\label{sec:notation}
+% ════════════════════════════════════════════════════════════════════════════
+
+Let $\mathcal{S}$ denote the set of all valid SMILES strings and
+$\mathcal{M}$ the set of all chemically valid molecules.
+For each molecule $m \in \mathcal{M}$, we write $v_d(m) \in \mathbb{R}$
+for the value of physicochemical descriptor $d$.
+
+The descriptor set used throughout this pipeline is
+\[
+  \Desc \;=\; \{\,\text{MW},\; \text{CLogP},\; \text{TPSA},\;
+                  \text{HBD},\; \text{HBA},\; \text{RB}\,\},
+\]
+where MW is molecular weight (Da), CLogP is the Wildman--Crippen
+partition coefficient, TPSA is topological polar surface area (\AA$^2$),
+HBD and HBA are the numbers of hydrogen-bond donors and acceptors
+respectively, and RB is the number of rotatable bonds.
+All descriptors are computed using RDKit~\cite{rdkit}.
+
+The six tolerance parameters $\delta_d$ corresponding to the acceptable
+deviation from a property target are listed in Table~\ref{tab:tolerances}.
+
+\begin{table}[h]
+\centering
+\caption{Per-descriptor tolerance parameters used in the physicochemical
+         conservation score (Section~\ref{sec:desirability}).}
+\label{tab:tolerances}
+\begin{tabular}{llcc}
+\toprule
+Descriptor & Symbol & Unit & Tolerance $\delta_d$ \\
+\midrule
+Molecular weight           & $\text{MW}$   & Da   & 50.0 \\
+Wildman--Crippen LogP      & $\text{CLogP}$& --   & 1.0  \\
+Topological polar surface area & $\text{TPSA}$ & \AA$^2$ & 20.0 \\
+H-bond donors              & $\text{HBD}$  & --   & 1.0  \\
+H-bond acceptors           & $\text{HBA}$  & --   & 2.0  \\
+Rotatable bonds            & $\text{RB}$   & --   & 2.0  \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The default evaluation thresholds and reporting configurations are
+given in Table~\ref{tab:thresholds}.
+
+\begin{table}[h]
+\centering
+\caption{Default threshold and binning parameters.}
+\label{tab:thresholds}
+\begin{tabular}{lll}
+\toprule
+Parameter & Values & Description \\
+\midrule
+$\tau_t$ & $\{0.6,\; 0.7,\; 0.85\}$ & Substructural conservation threshold \\
+$\tau_d$ & $0.8$ & Physicochemical conservation threshold \\
+Baseline quality bins & $[0,0.5),\;[0.5,0.7),\;[0.7,0.85),\;[0.85,1]$
+                      & Stratification bins (Section~\ref{sec:summary}) \\
+Fingerprint radius & $r = 2$ & ECFP4 Morgan radius \\
+Fingerprint length & $B = 2048$ & Bit-vector dimension \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+% ════════════════════════════════════════════════════════════════════════════
+\section{Property Specification}
+\label{sec:spec}
+% ════════════════════════════════════════════════════════════════════════════
+
+\begin{definition}[Property specification, \texttt{MolSpec}]
+\label{def:molspec}
+A \emph{property specification} $\sigma$ is a tuple
+\[
+  \sigma \;=\; \bigl(\mathbf{f}_\sigma,\;
+                      \mu_d^\sigma\bigr)_{d \in \Desc},
+\]
+where $\mathbf{f}_\sigma \in \{0,1\}^B$ is the ECFP4 fingerprint of the
+reference molecule (Section~\ref{sec:ecfp4}), and
+$\mu_d^\sigma \in \mathbb{R}$ is the target value of descriptor $d$.
+Optionally, $\sigma$ also stores a three-dimensional conformer
+$\hat{m}_\sigma$ for ESPsim evaluation (Section~\ref{sec:espsim}).
+\end{definition}
+
+The reference molecule from which $\sigma$ is derived is a ChEMBL bioactive
+compound selected for its demonstrated pharmacological activity.
+Its molecular identity is retained only as a diagnostic reference; it is
+not an optimization target.
+
+\begin{algorithm}[H]
+\caption{\textsc{MakeSpec}$(s,\, \textit{conformer})$ --- construct a property specification}
+\label{alg:makespec}
+\begin{algorithmic}[1]
+\Require SMILES string $s \in \mathcal{S}$;
+         boolean \textit{conformer} (generate 3D conformer for ESPsim)
+\Ensure  Property specification $\sigma$, or $\bot$ if $s$ is invalid
+\State $m \leftarrow \textsc{ParseSMILES}(s)$
+\If{$m = \bot$} \Return $\bot$ \EndIf
+\State $\mathbf{f}_\sigma \leftarrow \textsc{ECFP4}(m)$
+       \Comment{Algorithm~\ref{alg:ecfp4}}
+\For{$d \in \Desc$}
+  \State $\mu_d^\sigma \leftarrow v_d(m)$
+\EndFor
+\State $\hat{m}_\sigma \leftarrow \textsc{ETKDG}(m)$ \textbf{if} \textit{conformer} \textbf{else} $\varnothing$
+       \Comment{Algorithm~\ref{alg:etkdg}}
+\Return $\sigma = \bigl(\mathbf{f}_\sigma,\, (\mu_d^\sigma)_{d \in \Desc},\, \hat{m}_\sigma\bigr)$
+\end{algorithmic}
+\end{algorithm}
+
+
+% ════════════════════════════════════════════════════════════════════════════
+\section{Molecular Fingerprint (ECFP4)}
+\label{sec:ecfp4}
+% ════════════════════════════════════════════════════════════════════════════
+
+\begin{definition}[ECFP4 fingerprint]
+\label{def:ecfp4}
+The \emph{ECFP4 fingerprint} of molecule $m$ is a bit-vector
+$\fp{m} \in \{0,1\}^B$, $B = 2048$, computed by Morgan's circular
+algorithm with radius $r = 2$.
+At iteration $r$, each atom $a$ accumulates a hash identifier
+$h_a^{(r)}$ encoding the multi-set of identifiers in its $r$-hop
+neighbourhood:
+\[
+  h_a^{(r)} \;=\; \textsc{Hash}\!\left(h_a^{(r-1)},\;
+    \bigl\{\, h_b^{(r-1)} : b \in \mathcal{N}(a) \,\bigr\}\right),
+  \qquad h_a^{(0)} = \textsc{AtomInvariant}(a),
+\]
+where $\mathcal{N}(a)$ denotes the set of atoms adjacent to $a$.
+Each resulting identifier is mapped to a bit position via
+$\textsc{Hash}(\cdot) \bmod B$, and the corresponding bit is set.
+\end{definition}
+
+\begin{algorithm}[H]
+\caption{\textsc{ECFP4}$(m)$ --- compute the ECFP4 fingerprint}
+\label{alg:ecfp4}
+\begin{algorithmic}[1]
+\Require Molecule $m \in \mathcal{M}$
+\Ensure  Bit-vector $\mathbf{f} \in \{0,1\}^B$, $B = 2048$
+\State $\mathbf{f} \leftarrow \mathbf{0}^B$
+\For{$a \in \text{atoms}(m)$}
+  \State $h_a^{(0)} \leftarrow \textsc{AtomInvariant}(a)$
+\EndFor
+\For{$r = 1$ \textbf{to} $2$}
+  \For{$a \in \text{atoms}(m)$}
+    \State $h_a^{(r)} \leftarrow \textsc{Hash}\!\left(h_a^{(r-1)},\;
+           \bigl\{h_b^{(r-1)} : b \in \mathcal{N}(a)\bigr\}\right)$
+    \State $\mathbf{f}\!\left[h_a^{(r)} \bmod B\right] \leftarrow 1$
+  \EndFor
+\EndFor
+\Return $\mathbf{f}$
+\end{algorithmic}
+\end{algorithm}
+
+
+% ════════════════════════════════════════════════════════════════════════════
+\section{Substructural Conservation Score (Tanimoto)}
+\label{sec:tanimoto}
+% ════════════════════════════════════════════════════════════════════════════
+
+\begin{definition}[Tanimoto similarity]
+\label{def:tanimoto}
+For two bit-vectors $\mathbf{a}, \mathbf{b} \in \{0,1\}^B$,
+the \emph{Tanimoto (Jaccard) coefficient} is
+\[
+  T(\mathbf{a}, \mathbf{b})
+  \;=\; \frac{\mathbf{a} \cdot \mathbf{b}}
+             {\|\mathbf{a}\|_1 + \|\mathbf{b}\|_1 - \mathbf{a} \cdot \mathbf{b}}
+  \;=\; \frac{|A \cap B|}{|A \cup B|},
+\]
+where $A = \{i : a_i = 1\}$ and $B = \{i : b_i = 1\}$ are the
+support sets of $\mathbf{a}$ and $\mathbf{b}$, and
+$\|\mathbf{a}\|_1 = \sum_i a_i$.
+\end{definition}
+
+\begin{remark}
+$T \in [0, 1]$; $T = 1$ iff $\mathbf{a} = \mathbf{b}$;
+$T = 0$ iff $A \cap B = \varnothing$.
+\end{remark}
+
+The \emph{substructural conservation score} of variant $m$ against
+specification $\sigma$ is
+\[
+  \boxed{T(m, \sigma) \;=\; T\!\bigl(\fp{m},\, \mathbf{f}_\sigma\bigr).}
+\]
+
+\begin{algorithm}[H]
+\caption{\textsc{TanimotoToSpec}$(m, \sigma)$ --- substructural conservation score}
+\label{alg:tanimoto}
+\begin{algorithmic}[1]
+\Require Molecule $m \in \mathcal{M}$; specification $\sigma$
+\Ensure  $T(m, \sigma) \in [0, 1]$
+\State $\mathbf{f} \leftarrow \textsc{ECFP4}(m)$
+\State $n_a \leftarrow \|\mathbf{f}\|_1$;\quad
+       $n_b \leftarrow \|\mathbf{f}_\sigma\|_1$;\quad
+       $n_{ab} \leftarrow \mathbf{f} \cdot \mathbf{f}_\sigma$
+\Return $n_{ab} \;/\; (n_a + n_b - n_{ab})$
+\end{algorithmic}
+\end{algorithm}
+
+
+% ════════════════════════════════════════════════════════════════════════════
+\section{Physicochemical Conservation Score (Desirability)}
+\label{sec:desirability}
+% ════════════════════════════════════════════════════════════════════════════
+
+\subsection{Linear tolerance function}
+
+\begin{definition}[Linear tolerance function]
+\label{def:linear-tol}
+For descriptor $d$ with target $\mu \in \mathbb{R}$ and tolerance
+$\delta > 0$, the \emph{linear tolerance desirability} of value $v$ is
+\[
+  \ell(v,\, \mu,\, \delta)
+  \;=\; \max\!\left(0,\; 1 - \frac{|v - \mu|}{\delta}\right) \;\in\; [0, 1].
+\]
+\end{definition}
+
+The function equals 1 when $v = \mu$, decreases linearly, and reaches 0
+when $|v - \mu| \geq \delta$.
+For integer-valued descriptors (HBD, HBA, RB), the same formula applies
+with real-valued arguments.
+
+\subsection{Geometric mean aggregation}
+
+\begin{definition}[Geometric mean]
+\label{def:geomean}
+For a vector $(s_1, \ldots, s_k) \in [0,1]^k$, the \emph{geometric mean} is
+\[
+  \Geo(s_1, \ldots, s_k)
+  \;=\; \begin{dcases}
+    \exp\!\left(\frac{1}{k}\sum_{i=1}^k \ln s_i\right)
+      & \text{if } s_i > 0 \;\text{ for all } i, \\
+    0 & \text{otherwise.}
+  \end{dcases}
+\]
+\end{definition}
+
+\begin{remark}
+The geometric mean is the appropriate aggregation for desirability functions
+because a single component equal to zero drives the aggregate to zero,
+reflecting the requirement that \emph{all} physicochemical properties must
+be conserved simultaneously. The arithmetic mean would allow a high score on
+one descriptor to compensate for a violation on another.
+\end{remark}
+
+\subsection{Composite physicochemical conservation score}
+
+\begin{definition}[Physicochemical conservation score]
+\label{def:desirability}
+The \emph{physicochemical conservation score} of variant $m$ against
+specification $\sigma$ is
+\[
+  \boxed{
+    \Psi(m, \sigma)
+    \;=\; \Geo\!\Bigl(\ell\!\bigl(v_d(m),\, \mu_d^\sigma,\, \delta_d\bigr)\Bigr)_{d \in \Desc}
+    \;\in\; [0, 1].
+  }
+\]
+\end{definition}
+
+\begin{algorithm}[H]
+\caption{\textsc{Desirability}$(m, \sigma)$ --- physicochemical conservation score}
+\label{alg:desirability}
+\begin{algorithmic}[1]
+\Require Molecule $m \in \mathcal{M}$; specification $\sigma$
+\Ensure  $\Psi(m, \sigma) \in [0, 1]$;
+         component scores $(s_d)_{d \in \Desc} \in [0,1]^6$
+\For{$d \in \Desc$}
+  \State $s_d \leftarrow \ell\!\bigl(v_d(m),\; \mu_d^\sigma,\; \delta_d\bigr)$
+\EndFor
+\Return $\Geo(s_{\text{MW}},\, s_{\text{CLogP}},\, s_{\text{TPSA}},\,
+             s_{\text{HBD}},\, s_{\text{HBA}},\, s_{\text{RB}})$
+\end{algorithmic}
+\end{algorithm}
+
+
+% ════════════════════════════════════════════════════════════════════════════
+\section{Three-Dimensional Similarity (ESPsim, Supplementary)}
+\label{sec:espsim}
+% ════════════════════════════════════════════════════════════════════════════
+
+\subsection{Conformer generation}
+
+\begin{algorithm}[H]
+\caption{\textsc{ETKDG}$(m)$ --- generate a 3D conformer}
+\label{alg:etkdg}
+\begin{algorithmic}[1]
+\Require Molecule $m \in \mathcal{M}$
+\Ensure  3D conformer $\hat{m}$, or $\varnothing$ on failure
+\State $m' \leftarrow \textsc{AddHydrogens}(m)$
+\State Set random seed to 42
+\State $\hat{m} \leftarrow \textsc{EmbedMolecule}(m',\, \text{ETKDGv3})$
+\If{embedding failed} \Return $\varnothing$ \EndIf
+\State $\hat{m} \leftarrow \textsc{MMFFOptimize}(\hat{m})$
+\Return $\hat{m}$
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{ESPsim score}
+
+\begin{definition}[ESPsim score]
+\label{def:espsim}
+Let $\hat{m}$ and $\hat{m}_\sigma$ be 3D conformers of variant $m$ and
+reference $m_\sigma$ respectively.
+The \emph{ESPsim score} is the arithmetic mean of the shape similarity
+$S_\text{shape}$ and the electrostatic potential similarity $S_\text{ESP}$:
+\[
+  E(m, \sigma)
+  \;=\; \frac{S_\text{shape}(\hat{m},\, \hat{m}_\sigma)
+              + S_\text{ESP}(\hat{m},\, \hat{m}_\sigma)}{2}
+  \;\in\; [0, 1].
+\]
+Both $S_\text{shape}$ and $S_\text{ESP}$ are computed by the
+\texttt{espsim} library~\cite{espsim}.
+\end{definition}
+
+\begin{algorithm}[H]
+\caption{\textsc{ESPsim}$(m, \sigma)$ --- 3D shape and electrostatic similarity}
+\label{alg:espsim}
+\begin{algorithmic}[1]
+\Require Molecule $m \in \mathcal{M}$; specification $\sigma$ with
+         $\hat{m}_\sigma \neq \varnothing$
+\Ensure  $E(m, \sigma) \in [0, 1]$, or $\bot$ on failure
+\If{\texttt{espsim} not installed \textbf{or} $\hat{m}_\sigma = \varnothing$}
+  \Return $\bot$
+\EndIf
+\State $\hat{m} \leftarrow \textsc{ETKDG}(m)$
+\If{$\hat{m} = \varnothing$} \Return $\bot$ \EndIf
+\State $S_\text{shape} \leftarrow \textsc{GetShapeSim}(\hat{m},\, \hat{m}_\sigma)$
+\State $S_\text{ESP}   \leftarrow \textsc{GetEspSim}(\hat{m},\, \hat{m}_\sigma)$
+\Return $(S_\text{shape} + S_\text{ESP}) / 2$
+\end{algorithmic}
+\end{algorithm}
+
+\begin{remark}
+ESPsim is a supplementary diagnostic only.
+It couples evaluation to the specific 3D geometry of the ChEMBL reference
+conformer, which may not represent the bioactive conformation.
+It is not used in hit classification.
+\end{remark}
+
+
+% ════════════════════════════════════════════════════════════════════════════
+\section{Single-Variant Scoring}
+\label{sec:score-variant}
+% ════════════════════════════════════════════════════════════════════════════
+
+The following algorithm assembles the full feature vector for a single
+variant.
+Synthesizability (Gate~1) is the caller's responsibility: only variants that
+have already passed AiZynthFinder retrosynthetic analysis are passed to
+this function.
+
+\begin{algorithm}[H]
+\caption{\textsc{ScoreVariant}$(s, \sigma, q, \textit{espsim})$}
+\label{alg:score-variant}
+\begin{algorithmic}[1]
+\Require SMILES string $s$; specification $\sigma$;
+         baseline quality $q \in [0,1]$;
+         boolean \textit{espsim}
+\Ensure  Feature dictionary, or $\bot$ for invalid inputs
+\If{$s$ contains \texttt{`.'}}\Comment{multi-fragment: salt or mixture}
+  \Return $\bot$
+\EndIf
+\State $m \leftarrow \textsc{ParseSMILES}(s)$
+\If{$m = \bot$} \Return $\bot$ \EndIf
+\State $\tau \leftarrow T(m, \sigma)$
+       \Comment{Algorithm~\ref{alg:tanimoto}}
+\State $\psi,\, (s_d)_{d\in\Desc} \leftarrow \textsc{Desirability}(m, \sigma)$
+       \Comment{Algorithm~\ref{alg:desirability}}
+\State $e \leftarrow \textsc{ESPsim}(m, \sigma)$ \textbf{if} \textit{espsim}
+       \textbf{else} $\bot$
+       \Comment{Algorithm~\ref{alg:espsim}}
+\State $b \leftarrow \textsc{AssignBin}(q)$
+       \Comment{Definition~\ref{def:bin}}
+\Return $\bigl\{$
+  \texttt{tanimoto}: $\tau$,\;
+  \texttt{desirability}: $\psi$,\;
+  $(s_d)_{d\in\Desc}$,\;
+  \texttt{espsim}: $e$,\;
+  \texttt{quality\_bin}: $b$
+$\bigr\}$
+\end{algorithmic}
+\end{algorithm}
+
+
+% ════════════════════════════════════════════════════════════════════════════
+\section{Hit Classification}
+\label{sec:hit}
+% ════════════════════════════════════════════════════════════════════════════
+
+\begin{definition}[Hit indicator]
+\label{def:hit}
+Given thresholds $\tau_t \in (0,1]$ and $\tau_d \in (0,1]$, variant $m$
+is a \emph{hit} with respect to specification $\sigma$ if and only if
+\[
+  h(m, \sigma;\, \tau_t, \tau_d)
+  \;=\; \1{T(m, \sigma) \geq \tau_t}
+        \cdot
+        \1{\Psi(m, \sigma) \geq \tau_d}
+  \;=\; 1.
+\]
+The hit requires simultaneous satisfaction of the substructural and
+physicochemical conservation gates; neither criterion can substitute for
+the other.
+\end{definition}
+
+\begin{definition}[Hit set]
+\label{def:hitset}
+Let $\Var_M(\sigma)$ denote the set of synthesizable variants produced by
+method $M$ for specification $\sigma$ (after Gate~1 filtering).
+The \emph{hit set} of method $M$ at thresholds $(\tau_t, \tau_d)$ is
+\[
+  \Hit_M(\tau_t, \tau_d)
+  \;=\; \bigl\{\, m \in \Var_M(\sigma)
+               : h(m, \sigma;\, \tau_t, \tau_d) = 1 \,\bigr\}.
+\]
+\end{definition}
+
+\begin{remark}
+Results are reported at all combinations in
+$\{0.6, 0.7, 0.85\} \times \{0.8\}$ for $(\tau_t, \tau_d)$.
+No conclusion is drawn from a single threshold value.
+\end{remark}
+
+
+% ════════════════════════════════════════════════════════════════════════════
+\section{Expansion Factor}
+\label{sec:expansion}
+% ════════════════════════════════════════════════════════════════════════════
+
+\begin{definition}[Expansion factor]
+\label{def:expansion}
+Let $B$ denote the repeated-PrexSyn-sampling baseline.
+The \emph{expansion factor} of method $M$ at thresholds $(\tau_t, \tau_d)$ is
+\[
+  \text{EF}(M;\, \tau_t, \tau_d)
+  \;=\; \frac{|\Hit_M(\tau_t, \tau_d)|}{|\Hit_B(\tau_t, \tau_d)|}.
+\]
+If $|\Hit_B| = 0$, we define $\text{EF}(M) = +\infty$.
+\end{definition}
+
+The expansion factor is the \emph{primary ranking metric}: a value greater
+than~1 indicates that method $M$ produces synthesizable, property-conserving
+candidates that repeated PrexSyn sampling cannot reach.
+
+\begin{algorithm}[H]
+\caption{\textsc{ExpansionFactor}$(\Hit_M, \Hit_B)$}
+\label{alg:expansion}
+\begin{algorithmic}[1]
+\Require Hit sets $\Hit_M$, $\Hit_B$ (sets of canonical SMILES strings)
+\Ensure  $\text{EF} \in [0, +\infty)$
+\If{$|\Hit_B| = 0$} \Return $+\infty$ \EndIf
+\Return $|\Hit_M| \;/\; |\Hit_B|$
+\end{algorithmic}
+\end{algorithm}
+
+
+% ════════════════════════════════════════════════════════════════════════════
+\section{Chemical Diversity}
+\label{sec:diversity}
+% ════════════════════════════════════════════════════════════════════════════
+
+\begin{definition}[Chemical diversity]
+\label{def:diversity}
+The \emph{chemical diversity} of a set of molecules $\mathcal{H}$ is
+\[
+  \text{Div}(\mathcal{H})
+  \;=\; 1 - \frac{2}{|\mathcal{H}|\,(|\mathcal{H}|-1)}
+            \sum_{\substack{m,\, m' \in \mathcal{H} \\ m \neq m'}}
+            T\!\bigl(\fp{m},\, \fp{m'}\bigr)
+  \;\in\; [0, 1].
+\]
+A value of~1 indicates that no two hits share any circular substructure
+features at ECFP4 radius~2; a value of~0 indicates that all hits are
+identical.
+\end{definition}
+
+\begin{remark}
+$\text{Div}(\mathcal{H})$ is undefined for $|\mathcal{H}| < 2$;
+the implementation returns 0 in this case.
+\end{remark}
+
+
+% ════════════════════════════════════════════════════════════════════════════
+\section{Complementarity Analysis}
+\label{sec:complementarity}
+% ════════════════════════════════════════════════════════════════════════════
+
+\subsection{Pairwise Jaccard overlap}
+
+\begin{definition}[Pairwise Jaccard overlap]
+\label{def:jaccard}
+For methods $M_i, M_j \in \mathcal{M}$, the \emph{Jaccard overlap} of
+their hit sets at fixed $(\tau_t, \tau_d)$ is
+\[
+  J(M_i, M_j)
+  \;=\; \frac{|\Hit_{M_i} \cap \Hit_{M_j}|}{|\Hit_{M_i} \cup \Hit_{M_j}|}.
+\]
+$J = 0$ indicates fully complementary methods (disjoint hit sets);
+$J = 1$ indicates fully redundant methods (identical hit sets).
+\end{definition}
+
+\begin{algorithm}[H]
+\caption{\textsc{Complementarity}$\!\bigl((\Hit_M)_{M \in \mathcal{M}}\bigr)$
+         --- pairwise Jaccard matrix}
+\label{alg:complementarity}
+\begin{algorithmic}[1]
+\Require Hit sets $\Hit_M$ for each $M \in \Methods$
+\Ensure  Matrix $J \in [0,1]^{|\Methods| \times |\Methods|}$
+\For{$M_i \in \Methods$}
+  \For{$M_j \in \Methods$}
+    \State $u \leftarrow |\Hit_{M_i} \cup \Hit_{M_j}|$
+    \If{$u = 0$}
+      \State $J_{ij} \leftarrow 0$
+    \Else
+      \State $J_{ij} \leftarrow |\Hit_{M_i} \cap \Hit_{M_j}| \;/\; u$
+    \EndIf
+  \EndFor
+\EndFor
+\Return $J$
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Optimal combination search}
+
+\begin{definition}[Optimal $k$-method combination]
+\label{def:best-combo}
+For $k \in \{2, 3\}$, the \emph{optimal $k$-method combination} is
+\[
+  C^*(k)
+  \;=\; \argmax_{\substack{C \subseteq \Methods \setminus \{B\} \\ |C| = k}}
+        \left|\bigcup_{M \in C} \Hit_M(\tau_t, \tau_d)\right|.
+\]
+The baseline $B$ is excluded from the search; results are reported
+for both values of $k$.
+\end{definition}
+
+\begin{algorithm}[H]
+\caption{\textsc{BestCombinations}$\!\bigl((\Hit_M)_{M \in \mathcal{M}},\, k_\text{top}\bigr)$}
+\label{alg:best-combos}
+\begin{algorithmic}[1]
+\Require Hit sets; number of results to return $k_\text{top}$
+\Ensure  Ranked list of (combination, coverage) pairs
+\State $\text{results} \leftarrow [\;]$
+\For{$k \in \{2, 3\}$}
+  \For{each $C \subseteq \Methods \setminus \{B\}$ with $|C| = k$}
+    \State $\text{coverage} \leftarrow \left|\bigcup_{M \in C} \Hit_M\right|$
+    \State $\text{results.append}(C, \text{coverage})$
+  \EndFor
+\EndFor
+\Return top $k_\text{top}$ entries of results sorted by coverage descending
+\end{algorithmic}
+\end{algorithm}
+
+
+% ════════════════════════════════════════════════════════════════════════════
+\section{Stratification and Multi-Threshold Summary}
+\label{sec:summary}
+% ════════════════════════════════════════════════════════════════════════════
+
+\begin{definition}[Baseline quality and stratification bins]
+\label{def:bin}
+The \emph{baseline quality} of a specification $\sigma$ is the Tanimoto
+similarity of the PrexSyn seed candidate to the spec fingerprint:
+\[
+  q(\sigma) \;=\; T(m_\text{seed},\, \sigma),
+  \qquad m_\text{seed} = \argmax_{m \in \Var_\text{PrexSyn}} T(m, \sigma).
+\]
+Specifications are assigned to one of four \emph{difficulty bins}:
+\[
+  b(\sigma) \;=\;
+  \begin{cases}
+    B_1 & q(\sigma) < 0.5 \\
+    B_2 & 0.5 \leq q(\sigma) < 0.7 \\
+    B_3 & 0.7 \leq q(\sigma) < 0.85 \\
+    B_4 & q(\sigma) \geq 0.85.
+  \end{cases}
+\]
+\end{definition}
+
+\begin{definition}[Per-method summary statistics]
+\label{def:summary}
+For each method $M$, threshold $\tau_t$, fixed $\tau_d = 0.8$, and
+bin $B_i$, let $\mathcal{V}_{M,i}$ and $\Hit_{M,i}$ denote the variant
+and hit sets restricted to specifications in bin $B_i$.
+The summary statistics are:
+
+\medskip
+\begin{tabular}{ll}
+  Hit rate & $\displaystyle r_{M,i}(\tau_t) = \frac{|\Hit_{M,i}(\tau_t)|}{|\mathcal{V}_{M,i}|}$ \\[1.5ex]
+  Unique hits & $\displaystyle n_{M,i}(\tau_t) = |\Hit_{M,i}(\tau_t)|$ \\[1.5ex]
+  Expansion factor & $\displaystyle \text{EF}_{M,i}(\tau_t) = \dfrac{n_{M,i}(\tau_t)}{n_{B,i}(\tau_t)}$ \\[1.5ex]
+  Mean Tanimoto & $\displaystyle \bar{T}_{M,i} = \dfrac{1}{|\mathcal{V}_{M,i}|} \sum_{m \in \mathcal{V}_{M,i}} T(m,\sigma)$ \\[1.5ex]
+  Mean desirability & $\displaystyle \bar{\Psi}_{M,i} = \dfrac{1}{|\mathcal{V}_{M,i}|} \sum_{m \in \mathcal{V}_{M,i}} \Psi(m,\sigma)$ \\[1.5ex]
+  Diversity & $\displaystyle \text{Div}_{M,i}(\tau_t) = \text{Div}\!\bigl(\Hit_{M,i}(\tau_t)\bigr)$
+\end{tabular}
+\end{definition}
+
+\begin{algorithm}[H]
+\caption{\textsc{Summarize}$(D,\, \boldsymbol{\tau_t},\, \tau_d)$ --- multi-threshold stratified summary}
+\label{alg:summarize}
+\begin{algorithmic}[1]
+\Require Score DataFrame $D$ with columns
+  $\{\texttt{method}, \texttt{quality\_bin}, \texttt{tanimoto},
+     \texttt{desirability}, \texttt{variant\_smiles}\}$;
+  threshold list $\boldsymbol{\tau_t} = \{0.6, 0.7, 0.85\}$;
+  fixed $\tau_d = 0.8$
+\Ensure  Summary DataFrame indexed by $(\text{method}, b, \tau_t)$
+\State $\text{rows} \leftarrow [\;]$
+\For{$\tau_t \in \boldsymbol{\tau_t}$}
+  \State Compute $\Hit_B^{(b)}(\tau_t,\tau_d)$ for each bin $b$
+         \Comment{baseline hit sets for EF}
+  \For{each group $(M, b)$ in $D$}
+    \State $\mathcal{V} \leftarrow $ rows in group; $\Hit \leftarrow $ rows where $h = 1$
+    \State Compute $r, n, \text{EF}, \bar{T}, \bar{\Psi}, \text{Div}$
+           per Definition~\ref{def:summary}
+    \State $\text{rows.append}(M, b, \tau_t, r, n, \text{EF}, \bar{T}, \bar{\Psi}, \text{Div})$
+  \EndFor
+\EndFor
+\Return $\text{DataFrame}(\text{rows})$ sorted by $(\tau_t, b, M)$
+\end{algorithmic}
+\end{algorithm}
+
+
+% ════════════════════════════════════════════════════════════════════════════
+\section*{References}
+% ════════════════════════════════════════════════════════════════════════════
+
+\begin{thebibliography}{9}
+
+\bibitem{rdkit}
+G.~Landrum et al.
+\textit{RDKit: Open-source cheminformatics}, 2024.
+\url{http://www.rdkit.org}
+
+\bibitem{espsim}
+G.~Bolcato, E.~Heid, S.~Riniker.
+On the value of using 3D shape and electrostatic similarities in deep
+generative methods.
+\textit{J.\ Chem.\ Inf.\ Model.}\ \textbf{62}(6), 1388--1398 (2022).
+
+\bibitem{morgan}
+H.~L.~Morgan.
+The generation of a unique machine description for chemical structures ---
+a technique developed at Chemical Abstracts Service.
+\textit{J.\ Chem.\ Doc.}\ \textbf{5}(2), 107--113 (1965).
+
+\end{thebibliography}
+
+\end{document}
