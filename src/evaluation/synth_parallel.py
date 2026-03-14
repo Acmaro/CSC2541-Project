@@ -57,3 +57,24 @@ def score_one(smi: str) -> tuple[str, bool]:
         return smi, bool(stats["is_solved"])
     except Exception:
         return smi, False
+
+
+def score_one_full(smi: str) -> dict:
+    """
+    Score a single SMILES and return full stats dict.
+    Returns: {smiles, is_solved, num_routes, top_score}
+    """
+    global _finder
+    try:
+        _finder.target_smiles = smi
+        _finder.tree_search()
+        _finder.build_routes()
+        stats = _finder.extract_statistics()
+        return {
+            "smiles":     smi,
+            "is_solved":  bool(stats["is_solved"]),
+            "num_routes": int(stats["number_of_routes"]),
+            "top_score":  float(stats["top_score"]),
+        }
+    except Exception:
+        return {"smiles": smi, "is_solved": False, "num_routes": 0, "top_score": 0.0}
