@@ -75,4 +75,5 @@ def pad_batch(encoded_seqs):
     :return: A tensor with the sequences correctly padded.
     """
     seq_lengths = torch.tensor([len(seq) for seq in encoded_seqs], dtype=torch.int64)  # pylint: disable=not-callable
-    return (tnnur.pad_sequence(encoded_seqs, batch_first=True).cuda(), seq_lengths)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    return (tnnur.pad_sequence(encoded_seqs, batch_first=True).to(device), seq_lengths)
