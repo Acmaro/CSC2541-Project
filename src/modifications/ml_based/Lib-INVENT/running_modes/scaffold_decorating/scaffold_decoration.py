@@ -49,7 +49,8 @@ class ScaffoldDecorator:
                 series = pd.Series([smile, sample.scaffold, sample.decoration, sample.nll],
                                    index=['SMILES', 'Scaffold', 'Decorations', 'Likelihoods'])
 
-                self._decorated_scaffolds = self._decorated_scaffolds.append(series, ignore_index=True)
+                self._decorated_scaffolds = pd.concat(
+                    [self._decorated_scaffolds, series.to_frame().T], ignore_index=True)
             else:
                 self._logger.log_message(f"Invalid decorations: {sample.decoration} for scaffold {sample.scaffold}")
 
