@@ -1,4 +1,5 @@
 import pandas as pd
+from tqdm import tqdm
 from reinvent_chemistry import Conversions
 from reinvent_chemistry.enums import FilterTypesEnum
 from reinvent_chemistry.file_reader import FileReader
@@ -20,9 +21,6 @@ class ScaffoldDecorator:
         self._attachment_points = AttachmentPoints()
         self._conversion = Conversions()
 
-        df_dict = {"SMILES": [], "Scaffold": [], "Decorations": [], "Likelihoods": []}
-        self._decorated_scaffolds = pd.DataFrame(df_dict)
-
         filter_types = FilterTypesEnum()
         config = FilterConfiguration(name=filter_types.GET_LARGEST_FRAGMENT, parameters={})
         self._reader = FileReader([config], logger)
@@ -39,23 +37,28 @@ class ScaffoldDecorator:
                                       self._configuration.randomize, sample_uniquely=self._configuration.sample_uniquely)
         sampled_sequences = sampling_action.run(input_scaffolds)
 
-        for sample in sampled_sequences:
+        # Collect rows in a list and build DataFrame once — avoids O(n²) pd.concat in loop
+        rows = []
+        n_invalid = 0
+        for sample in tqdm(sampled_sequences, desc="Joining decorations", unit="mol", dynamic_ncols=True):
             scaffold = self._attachment_points.add_attachment_point_numbers(sample.scaffold, canonicalize=False)
             molecule = self._bond_maker.join_scaffolds_and_decorations(scaffold, sample.decoration)
 
             if molecule:
                 smile = self._conversion.mol_to_smiles(molecule, isomericSmiles=False, canonical=False)
-
-                series = pd.Series([smile, sample.scaffold, sample.decoration, sample.nll],
-                                   index=['SMILES', 'Scaffold', 'Decorations', 'Likelihoods'])
-
-                self._decorated_scaffolds = pd.concat(
-                    [self._decorated_scaffolds, series.to_frame().T], ignore_index=True)
+                rows.append({
+                    "SMILES":       smile,
+                    "Scaffold":     sample.scaffold,
+                    "Decorations":  sample.decoration,
+                    "Likelihoods":  sample.nll,
+                })
             else:
-                self._logger.log_message(f"Invalid decorations: {sample.decoration} for scaffold {sample.scaffold}")
+                n_invalid += 1
+                self._logger.log_message(
+                    f"Invalid decorations: {sample.decoration} for scaffold {sample.scaffold}")
 
-        self._logger.log_message(f"Sampled {len(self._decorated_scaffolds)} scaffolds in total")
-        # self._logger.log_timestep(self._decorated_scaffolds['SMILES'].values,
-        #                           self._decorated_scaffolds['Likelihoods'].values,,
+        decorated_scaffolds = pd.DataFrame(rows, columns=["SMILES", "Scaffold", "Decorations", "Likelihoods"])
 
-        self._decorated_scaffolds.to_csv(self._configuration.output_path, index=False)
+        self._logger.log_message(
+            f"Sampled {len(decorated_scaffolds)} valid / {n_invalid} invalid scaffolds")
+        decorated_scaffolds.to_csv(self._configuration.output_path, index=False)
