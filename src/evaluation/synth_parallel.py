@@ -31,6 +31,7 @@ def worker_init(config_path: str) -> None:
     subsequent score_one() calls reuse the same instance.
     """
     global _finder
+    import gc
     from aizynthfinder.aizynthfinder import AiZynthFinder
 
     _finder = AiZynthFinder(configfile=config_path)
@@ -40,6 +41,7 @@ def worker_init(config_path: str) -> None:
     _finder.config.iteration_limit   = 200
     _finder.config.search.max_transforms = 6
     _finder.config.random_seed       = 42
+    gc.collect()
 
 
 def score_one(smi: str) -> tuple[str, bool]:
@@ -49,13 +51,22 @@ def score_one(smi: str) -> tuple[str, bool]:
     simultaneously because each process has its own _finder instance.
     """
     global _finder
+    if _finder is None:
+        import sys
+        print(f"[score_one] ERROR: _finder is None — worker_init() may have failed", flush=True, file=sys.stderr)
+        return smi, False
     try:
+        import gc
         _finder.target_smiles = smi
         _finder.tree_search()
         _finder.build_routes()
         stats = _finder.extract_statistics()
-        return smi, bool(stats["is_solved"])
-    except Exception:
+        result = smi, bool(stats["is_solved"])
+        gc.collect()   # release MCTS tree memory between molecules
+        return result
+    except Exception as e:
+        import sys
+        print(f"[score_one] Exception for {smi[:50]}: {type(e).__name__}: {e}", flush=True, file=sys.stderr)
         return smi, False
 
 

@@ -1,7 +1,7 @@
 from typing import List
 
-import numpy as np
 import torch.utils.data as tud
+from tqdm import tqdm
 from reinvent_chemistry import Conversions
 from reinvent_chemistry.library_design import BondMaker, AttachmentPoints
 from reinvent_chemistry.utils import get_indices_of_unique_smiles
@@ -36,30 +36,36 @@ class SampleModel(BaseAction):
         :return: A list of SampledSequencesDTO.
         """
         scaffold_list = self._randomize_scaffolds(scaffold_list) if self._randomize else scaffold_list
-        clean_scaffolds = [self._attachment_points.remove_attachment_point_numbers(scaffold) for scaffold in scaffold_list]
+        clean_scaffolds = [self._attachment_points.remove_attachment_point_numbers(scaffold)
+                           for scaffold in scaffold_list]
+
         dataset = md.Dataset(clean_scaffolds, self.model.vocabulary.scaffold_vocabulary,
                              self.model.vocabulary.scaffold_tokenizer)
-        dataloader = tud.DataLoader(dataset, batch_size=len(dataset), shuffle=False, collate_fn=md.Dataset.collate_fn)
 
-        for batch in dataloader:
-            sampled_sequences = []
+        # Use the configured batch_size for the DataLoader so the GPU processes
+        # one proper mini-batch at a time instead of the entire dataset at once.
+        dataloader = tud.DataLoader(
+            dataset,
+            batch_size=self._batch_size,
+            shuffle=False,
+            collate_fn=md.Dataset.collate_fn,
+        )
 
-            for _ in range(self._batch_size):
-                packed = self.model.sample_decorations(*batch)
-                for scaffold, decoration, nll in packed:
-                    sampled_sequences.append(SampledSequencesDTO(scaffold, decoration, nll))
+        sampled_sequences = []
+        for batch in tqdm(dataloader, desc="Sampling batches", unit="batch", dynamic_ncols=True):
+            packed = self.model.sample_decorations(*batch)
+            for scaffold, decoration, nll in packed:
+                sampled_sequences.append(SampledSequencesDTO(scaffold, decoration, nll))
 
-            if self._sample_uniquely:
-                sampled_sequences = self._sample_unique_sequences(sampled_sequences)
+        if self._sample_uniquely:
+            sampled_sequences = self._sample_unique_sequences(sampled_sequences)
 
-            return sampled_sequences
+        return sampled_sequences
 
     def _sample_unique_sequences(self, sampled_sequences: List[SampledSequencesDTO]) -> List[SampledSequencesDTO]:
-        strings = ["".join([ss.scaffold, ss.decoration]) for index, ss in enumerate(sampled_sequences)]
+        strings = [ss.scaffold + ss.decoration for ss in sampled_sequences]
         unique_idxs = get_indices_of_unique_smiles(strings)
-        sampled_sequences_np = np.array(sampled_sequences)
-        unique_sampled_sequences = sampled_sequences_np[unique_idxs]
-        return unique_sampled_sequences.tolist()
+        return [sampled_sequences[i] for i in unique_idxs]
 
     def _randomize_scaffolds(self, scaffolds: List[str]):
         scaffold_mols = [self._conversions.smile_to_mol(scaffold) for scaffold in scaffolds]

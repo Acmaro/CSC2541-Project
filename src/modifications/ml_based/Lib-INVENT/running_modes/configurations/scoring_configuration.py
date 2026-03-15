@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 
 from reinvent_scoring import ScoringFuncionParameters
-
 from running_modes.configurations import ReactionFilterConfiguration
 
 
