@@ -6,6 +6,9 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, List
 
+from reinvent_scoring.scoring.score_summary import ComponentSummary, FinalSummary
+from reinvent_scoring.scoring.enums.scoring_function_component_enum import ScoringFunctionComponentNameEnum
+
 
 @dataclass
 class ScoringFuncionParameters:
@@ -22,34 +25,15 @@ class ComponentParameters:
 
 
 @dataclass
-class ComponentSummary:
-    total_score: float = 0.0
-    parameters: Any = None
-
-
-@dataclass
 class LoggableComponent:
     name: str = ""
     component_type: str = ""
     score: float = 0.0
 
 
-@dataclass
-class FinalSummary:
-    total_score: float = 0.0
-    scored_smiles: List[str] = field(default_factory=list)
-    scaffold_log: List[Any] = field(default_factory=list)
-    compounds_stats: Any = None
-
-
 class ScoringFunctionNameEnum(str, Enum):
     CUSTOM_PRODUCT = "custom_product"
     CUSTOM_SUM = "custom_sum"
-
-
-class ScoringFunctionComponentNameEnum(str, Enum):
-    QED_SCORE = "qed_score"
-    TANIMOTO_SIMILARITY = "tanimoto_similarity"
 
 
 class ScoringFunctionFactory:

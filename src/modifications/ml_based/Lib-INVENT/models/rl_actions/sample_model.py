@@ -1,6 +1,5 @@
 from typing import List
 
-import numpy as np
 import torch.utils.data as tud
 from tqdm import tqdm
 from reinvent_chemistry import Conversions
@@ -64,11 +63,9 @@ class SampleModel(BaseAction):
         return sampled_sequences
 
     def _sample_unique_sequences(self, sampled_sequences: List[SampledSequencesDTO]) -> List[SampledSequencesDTO]:
-        strings = ["".join([ss.scaffold, ss.decoration]) for index, ss in enumerate(sampled_sequences)]
+        strings = [ss.scaffold + ss.decoration for ss in sampled_sequences]
         unique_idxs = get_indices_of_unique_smiles(strings)
-        sampled_sequences_np = np.array(sampled_sequences)
-        unique_sampled_sequences = sampled_sequences_np[unique_idxs]
-        return unique_sampled_sequences.tolist()
+        return [sampled_sequences[i] for i in unique_idxs]
 
     def _randomize_scaffolds(self, scaffolds: List[str]):
         scaffold_mols = [self._conversions.smile_to_mol(scaffold) for scaffold in scaffolds]

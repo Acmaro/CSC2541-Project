@@ -1,10 +1,6 @@
 from dataclasses import dataclass
 
-try:
-    from reinvent_scoring import ScoringFuncionParameters
-except ImportError:
-    ScoringFuncionParameters = object
-
+from reinvent_scoring import ScoringFuncionParameters
 from running_modes.configurations import ReactionFilterConfiguration
 
 
