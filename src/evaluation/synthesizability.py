@@ -18,7 +18,7 @@ def _get_finder(config_path: str, seed: int = 42) -> AiZynthFinder:
         _finder.filter_policy.select_all()
         _finder.stock.select_all()
         _finder.config.iteration_limit = 200
-        _finder.config.search.max_transforms = 6
+        _finder.config.search.max_transforms = 4
         _finder.config.random_seed = seed
         _finder_config = config_path
         print("Ready.")
