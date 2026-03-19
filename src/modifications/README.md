@@ -128,12 +128,63 @@ variants = M.modify("c1ccccc1", n=20)
 
 ---
 
-## 3. mmpdb (Matched Molecular Pairs) - *[Planned]*
+## 3. mmpdb (Matched Molecular Pairs DataBase)
 
-**Location:** `rule_based/mmpdb/`
+**Location:** `rule_based/mmpdb_modifier.py`
 **Environment:** `prexsyn_env` (Python 3.11)
 
-*(Documentation placeholder: To be populated once mmpdb integration is complete. Will be used for rule-based transforms based on matched molecular pair analysis.)*
+mmpdb builds a custom transformation database from a reference SMILES corpus (ChEMBL) by fragmenting molecules into matched molecular pairs (MMPs). Given a query molecule, `mmpdb transform` applies all learned A→B pair transformations that match the molecule's local chemical environment, producing structurally similar analogs with targeted substructure swaps.
+
+Unlike CReM (which uses a pre-built ChEMBL/ZINC database), mmpdb derives its rules from whichever corpus you supply, giving you full control over the transformation space.
+
+### Database Setup (one-time, ~20-40 min)
+
+```bash
+python scripts/setup_mmpdb_db.py --n-mols 50000 --num-jobs 4
+```
+
+This script:
+1. Downloads and filters the full ChEMBL corpus (cached at `data/chembl_filtered.csv`).
+2. Samples 50k molecules and writes `data/mmpdb_db/chembl_50k.smi`.
+3. Runs `mmpdb fragment` to enumerate all MMP transformations.
+4. Runs `mmpdb index` to build `data/mmpdb_db/chembl_50k.mmpdb` (~SQLite).
+
+Set the environment variable for convenience:
+
+```bash
+export MMPDB_DB_PATH=/path/to/data/mmpdb_db/chembl_50k.mmpdb
+```
+
+### Usage
+
+```python
+from src.modifications.rule_based.mmpdb_modifier import MmpdbModifier
+
+# Construct once; reuse for many molecules
+M = MmpdbModifier(db_path="data/mmpdb_db/chembl_50k.mmpdb")
+
+# Generate up to 50 canonical SMILES variants
+variants = M.modify("CCc1nn(C)c2ccc(cc12)C(=O)NCc3ccccc3", n=50)
+# variants: list[str] — up to 50 canonical SMILES strings
+```
+
+Or, relying on the environment variable:
+
+```python
+M = MmpdbModifier()   # reads MMPDB_DB_PATH automatically
+variants = M.modify("c1ccccc1", n=20)
+```
+
+### Key Parameters
+
+| Parameter               | Default | Description |
+|-------------------------|---------|-------------|
+| `db_path`               | `None`  | Path to .mmpdb SQLite file (falls back to `MMPDB_DB_PATH`) |
+| `radius`                | `3`     | Environment radius for MMP context matching. Higher = more conservative |
+| `max_variable_heavies`  | `10`    | Max heavy atoms in the swapped fragment |
+| `max_weight`            | `None`  | Optional MW cap on product molecules (passed as `--max-weight`) |
+
+**vs. CReM:** CReM queries a large pre-built database with SMARTS-context matching per fragment cut; mmpdb applies whole-pair A→B transformations derived from your custom corpus. They are complementary: CReM is broader (millions of rules), mmpdb is domain-tunable.
 
 ---
 
