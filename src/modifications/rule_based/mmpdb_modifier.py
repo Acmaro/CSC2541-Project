@@ -26,14 +26,16 @@ class MmpdbModifier:
         Path to the .mmpdb SQLite file. If None, falls back to the
         MMPDB_DB_PATH environment variable.
     max_variable_heavies : int
-        ``--max-variable-heavies``: maximum heavy-atom count of the swapped
-        fragment (default 10). Larger values allow more drastic changes.
+        Maximum heavy-atom count of the swapped fragment (default 10).
+        This is passed to the current mmpdb CLI as ``--max-variable-size``.
+        Larger values allow more drastic changes.
     radius : int
-        ``--radius``: environment radius used for MMP context matching
-        (default 3). Higher values are more conservative.
+        Minimum environment radius used for MMP context matching
+        (default 3). This is passed to the current mmpdb CLI as
+        ``--min-radius``. Higher values are more conservative.
     max_weight : float | None
-        Optional ``--max-weight`` MW cap on product molecules. If None,
-        no weight filter is applied.
+        Reserved for future filtering support. The current mmpdb CLI
+        available in this workspace does not expose a direct MW-cap flag.
     """
 
     def __init__(
@@ -109,15 +111,21 @@ class MmpdbModifier:
 
     def _build_cmd(self, seed_smiles: str, output: str) -> list:
         cmd = [
-            "mmpdb", "transform",
+            "mmpdb",
+            "transform",
+            self.db_path,
             "--smiles", seed_smiles,
-            "--output", output,
-            "--max-variable-heavies", str(self.max_variable_heavies),
-            "--radius", str(self.radius),
+            "--max-variable-size", str(self.max_variable_heavies),
+            "--min-radius", str(self.radius),
         ]
+        if output != "-":
+            cmd += ["--output", output]
         if self.max_weight is not None:
-            cmd += ["--max-weight", str(self.max_weight)]
-        cmd.append(self.db_path)
+            raise ValueError(
+                "max_weight is not supported by the installed mmpdb CLI. "
+                "The current wrapper only supports the transform options "
+                "available in this workspace."
+            )
         return cmd
 
     def _run_transform(self, seed_smiles: str, output: str) -> str | None:
