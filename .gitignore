@@ -4,7 +4,14 @@ __pycache__/
 .claude/
 outputs/
 
+data/
+!data/mmpdb_db/
+data/mmpdb_db/*
+!data/mmpdb_db/*.mmpdb
+
 # Google Drive API secrets — never track these
 credentials.json
 token.json
 .credentials/
+
+.venv/
