@@ -24,6 +24,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--attempts-per-variant', type=int, default=8)
     parser.add_argument('--random-seed', type=int, default=0)
     parser.add_argument('--prob-decode', action='store_true')
+    parser.add_argument('--device', choices=('auto', 'cpu', 'cuda'), default='auto')
     parser.add_argument('--output-json', required=True)
     return parser.parse_args()
 
@@ -46,20 +47,42 @@ def _canonicalize(rdkit_chem, smiles: str) -> str | None:
     return rdkit_chem.MolToSmiles(mol)
 
 
+def _resolve_device(torch_module, requested: str) -> str:
+    if requested == 'auto':
+        return 'cuda' if torch_module.cuda.is_available() else 'cpu'
+    if requested == 'cuda' and not torch_module.cuda.is_available():
+        raise RuntimeError('JT-VAE requested CUDA, but torch.cuda.is_available() is False')
+    return requested
+
+
+def _candidate_scales(base_scale: float) -> list[float]:
+    scales: list[float] = []
+    for candidate in (base_scale, max(base_scale, 0.75), max(base_scale, 1.5)):
+        if not any(abs(candidate - scale) < 1e-8 for scale in scales):
+            scales.append(candidate)
+    return scales
+
+
 def main() -> None:
     args = parse_args()
     backend_root = Path(args.backend_root).resolve()
     sys.path.insert(0, str(backend_root))
 
     import rdkit.Chem as Chem
+    from rdkit import RDLogger
     import torch
-    from fast_jtnn import JTNNVAE, MolTree, Vocab
-    from fast_jtnn.datautils import tensorize
 
-    _enable_cpu_compat(torch)
+    RDLogger.DisableLog('rdApp.*')
+    device = _resolve_device(torch, args.device)
+    if device == 'cpu':
+        _enable_cpu_compat(torch)
+
+    from fast_jtnn import JTNNVAE, Vocab
 
     random.seed(args.random_seed)
     torch.manual_seed(args.random_seed)
+    if device == 'cuda':
+        torch.cuda.manual_seed_all(args.random_seed)
 
     vocab_entries = [
         line.strip()
@@ -75,38 +98,45 @@ def main() -> None:
         args.depth_t,
         args.depth_g,
     )
-    state_dict = torch.load(args.model_path, map_location='cpu')
+    state_dict = torch.load(args.model_path, map_location=device)
     model.load_state_dict(state_dict)
+    if device == 'cuda':
+        model = model.cuda()
     model.eval()
 
     seed_smiles = _canonicalize(Chem, args.seed_smiles)
     if seed_smiles is None:
         raise ValueError(f'Invalid SMILES: {args.seed_smiles!r}')
 
-    tree_batch = [MolTree(seed_smiles)]
-    _, jtenc_holder, mpn_holder = tensorize(tree_batch, vocab, assm=False)
-    latent_mean, _ = model.encode_latent(jtenc_holder, mpn_holder)
-    z_tree_mean, z_mol_mean = torch.chunk(latent_mean, 2, dim=1)
-
     variants: list[str] = []
     seen = {seed_smiles}
-    max_attempts = max(
-        args.num_variants * args.attempts_per_variant,
-        args.num_variants,
-    )
-    for _ in range(max_attempts):
-        z_tree = z_tree_mean + torch.randn_like(z_tree_mean) * args.noise_scale
-        z_mol = z_mol_mean + torch.randn_like(z_mol_mean) * args.noise_scale
-        decoded = model.decode(z_tree, z_mol, args.prob_decode)
-        canon = _canonicalize(Chem, decoded) if decoded else None
-        if canon is None or canon in seen:
-            continue
-        seen.add(canon)
-        variants.append(canon)
-        if len(variants) >= args.num_variants:
-            break
+    with torch.no_grad():
+        latent_mean = model.encode_latent_mean([seed_smiles])
+        z_tree_mean, z_mol_mean = torch.chunk(latent_mean, 2, dim=1)
 
-    Path(args.output_json).write_text(json.dumps({'variants': variants}, indent=2))
+        for scale in _candidate_scales(args.noise_scale):
+            remaining = args.num_variants - len(variants)
+            if remaining <= 0:
+                break
+            max_attempts = max(remaining * args.attempts_per_variant, remaining)
+            for _ in range(max_attempts):
+                z_tree = z_tree_mean + torch.randn_like(z_tree_mean) * scale
+                z_mol = z_mol_mean + torch.randn_like(z_mol_mean) * scale
+                try:
+                    decoded = model.decode(z_tree, z_mol, args.prob_decode)
+                except Exception:
+                    continue
+                canon = _canonicalize(Chem, decoded) if decoded else None
+                if canon is None or canon in seen:
+                    continue
+                seen.add(canon)
+                variants.append(canon)
+                if len(variants) >= args.num_variants:
+                    break
+
+    Path(args.output_json).write_text(
+        json.dumps({'variants': variants, 'device': device}, indent=2)
+    )
 
 
 if __name__ == '__main__':

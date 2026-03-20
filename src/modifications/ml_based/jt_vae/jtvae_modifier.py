@@ -15,7 +15,7 @@ class JTVAEModifier:
     """Generate JT-VAE variants by calling an isolated backend process.
 
     This wrapper keeps the main project environment independent from the
-    legacy JT-VAE dependency stack. The actual model execution happens in
+    JT-VAE dependency stack. The actual model execution happens in
     ``backend_infer.py`` using the interpreter configured by ``JT_VAE_PYTHON``.
     """
 
@@ -33,11 +33,12 @@ class JTVAEModifier:
         attempts_per_variant: int = 8,
         random_seed: int = 0,
         prob_decode: bool = False,
+        device: str | None = None,
     ):
         base_dir = Path(__file__).resolve().parent
         project_root = base_dir.parents[3]
-        default_backend_root = base_dir / 'vendor' / 'JTNN-VAE'
-        default_vocab = default_backend_root / 'data' / 'moses' / 'vocab.txt'
+        default_backend_root = base_dir / 'vendor' / 'mol_opt' / 'main' / 'jt_vae'
+        default_vocab = default_backend_root / 'data' / 'zinc' / 'vocab.txt'
 
         self.python_bin = Path(
             python_bin
@@ -48,7 +49,9 @@ class JTVAEModifier:
             backend_root or os.environ.get('JT_VAE_HOME') or default_backend_root
         )
         self.model_path = Path(model_path or os.environ.get('JT_VAE_MODEL_PATH', ''))
-        self.vocab_path = Path(vocab_path or os.environ.get('JT_VAE_VOCAB_PATH') or default_vocab)
+        self.vocab_path = Path(
+            vocab_path or os.environ.get('JT_VAE_VOCAB_PATH') or default_vocab
+        )
         self.backend_script = base_dir / 'backend_infer.py'
         self.hidden_size = hidden_size
         self.latent_size = latent_size
@@ -58,6 +61,7 @@ class JTVAEModifier:
         self.attempts_per_variant = attempts_per_variant
         self.random_seed = random_seed
         self.prob_decode = prob_decode
+        self.device = device or os.environ.get('JT_VAE_DEVICE', 'auto')
 
     def modify(self, seed: str, n: int) -> list[str]:
         if n <= 0:
@@ -84,6 +88,7 @@ class JTVAEModifier:
             '--noise-scale', str(self.noise_scale),
             '--attempts-per-variant', str(self.attempts_per_variant),
             '--random-seed', str(self.random_seed),
+            '--device', self.device,
             '--output-json', str(output_path),
         ]
         if self.prob_decode:
@@ -125,9 +130,8 @@ class JTVAEModifier:
         if not self.backend_root.exists():
             raise FileNotFoundError(
                 f'JT-VAE backend checkout not found: {self.backend_root}\n'
-                'Initialize the submodule with: '
-                'git submodule update --init --recursive '
-                'src/modifications/ml_based/jt_vae/vendor/JTNN-VAE'
+                'Expected vendored backend at: '
+                'src/modifications/ml_based/jt_vae/vendor/mol_opt/main/jt_vae'
             )
         if not self.python_bin.exists():
             raise FileNotFoundError(
