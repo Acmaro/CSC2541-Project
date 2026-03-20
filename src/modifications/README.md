@@ -22,11 +22,19 @@ The JT-VAE integration expects the following runtime inputs:
 export JT_VAE_PYTHON=/path/to/.venv-jtvae/bin/python
 export JT_VAE_HOME=/path/to/src/modifications/ml_based/jt_vae/vendor/mol_opt/main/jt_vae
 export JT_VAE_VOCAB_PATH=/path/to/src/modifications/ml_based/jt_vae/vendor/mol_opt/main/jt_vae/data/zinc/vocab.txt
-export JT_VAE_MODEL_PATH=/absolute/path/to/pretrained/model.iter-XXXX
+export JT_VAE_MODEL_PATH=/path/to/src/modifications/ml_based/jt_vae/vendor/mol_opt/main/jt_vae/fast_molvae/vae_model/model.iter-25000
 export JT_VAE_DEVICE=auto
 ```
 
-The vendored backend includes compatible `moses` and `zinc` vocabulary files, but pretrained checkpoints are not shipped with this repository and must be provided separately.
+Teammates must fetch the JT-VAE backend through the git submodule:
+
+```bash
+git submodule update --init --recursive
+```
+
+The checkpoint comes from the `mol_opt` submodule, not from Git LFS. The
+vendored backend also includes compatible `moses` and `zinc` vocabulary
+files.
 
 ### Usage
 

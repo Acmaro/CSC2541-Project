@@ -73,4 +73,28 @@ docs/                  # Project documentation
 | Lib-INVENT | `libinvent_env` (`envs/env_libinvent.yml`) | 3.7 |
 | JT-VAE | dedicated isolated env (`scripts/setup_jt_vae_env.sh`) | 3.10 recommended |
 
+### JT-VAE Checkout Notes
+
+JT-VAE uses the vendored `mol_opt` git submodule under
+`src/modifications/ml_based/jt_vae/vendor/mol_opt/`.
+
+Clone with submodules:
+
+```bash
+git clone --recurse-submodules git@github.com:Acmaro/CSC2541-Project.git
+```
+
+If you already cloned the repository without submodules:
+
+```bash
+git submodule update --init --recursive
+```
+
+The JT-VAE checkpoint is fetched through that submodule, not through Git
+LFS. The default checkpoint path is:
+
+```bash
+src/modifications/ml_based/jt_vae/vendor/mol_opt/main/jt_vae/fast_molvae/vae_model/model.iter-25000
+```
+
 See `src/modifications/README.md` for full modification pipeline usage and implementation details.
