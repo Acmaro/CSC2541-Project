@@ -39,9 +39,9 @@ editable mode.
 After setup, export the runtime variables:
 
 ```bash
-export JT_VAE_PYTHON=/project/yuma/lectures/csc2541/project/CSC2541-Project/.venv-jtvae/bin/python
-export JT_VAE_HOME=/project/yuma/lectures/csc2541/project/CSC2541-Project/src/modifications/ml_based/jt_vae/vendor/JTNN-VAE
-export JT_VAE_VOCAB_PATH=/project/yuma/lectures/csc2541/project/CSC2541-Project/src/modifications/ml_based/jt_vae/vendor/JTNN-VAE/data/moses/vocab.txt
+export JT_VAE_PYTHON="$(pwd)/.venv-jtvae/bin/python"
+export JT_VAE_HOME="$(pwd)/src/modifications/ml_based/jt_vae/vendor/JTNN-VAE"
+export JT_VAE_VOCAB_PATH="$(pwd)/src/modifications/ml_based/jt_vae/vendor/JTNN-VAE/data/moses/vocab.txt"
 export JT_VAE_MODEL_PATH=/absolute/path/to/pretrained/model.iter-XXXX
 ```
 
