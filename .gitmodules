@@ -1,0 +1,3 @@
+[submodule "src/modifications/ml_based/jt_vae/vendor/mol_opt"]
+	path = src/modifications/ml_based/jt_vae/vendor/mol_opt
+	url = https://github.com/wenhao-gao/mol_opt
