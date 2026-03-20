@@ -17,6 +17,7 @@ We categorize modification algorithms into two main approaches:
 
 * For **Lib-INVENT**: Use `libinvent_env` (Python 3.7)
 * For **CReM / mmpdb**: Use `prexsyn_env` (Python 3.11)
+* For **JT-VAE**: Use the dedicated isolated environment created by `bash scripts/setup_jt_vae_env.sh` and point `JT_VAE_PYTHON` to that interpreter
 
 ---
 
@@ -182,17 +183,54 @@ variants = M.modify("c1ccccc1", n=20)
 | `db_path`               | `None`  | Path to .mmpdb SQLite file (falls back to `MMPDB_DB_PATH`) |
 | `radius`                | `3`     | Environment radius for MMP context matching. Higher = more conservative |
 | `max_variable_heavies`  | `10`    | Max heavy atoms in the swapped fragment |
-| `max_weight`            | `None`  | Optional MW cap on product molecules (passed as `--max-weight`) |
+| `max_weight`            | `None`  | Reserved for future filtering support; the current CLI wrapper does not pass an MW cap flag |
 
 **vs. CReM:** CReM queries a large pre-built database with SMARTS-context matching per fragment cut; mmpdb applies whole-pair A→B transformations derived from your custom corpus. They are complementary: CReM is broader (millions of rules), mmpdb is domain-tunable.
 
 ---
 
-## 4. JT-VAE (Junction Tree Variational Autoencoder) - *[Planned]*
+## 4. JT-VAE (Junction Tree Variational Autoencoder)
 
 **Location:** `ml_based/jt_vae/`
-**Environment:** TBD
+**Environment:** dedicated isolated environment (preferred setup: `bash scripts/setup_jt_vae_env.sh`)
 
-*(Documentation placeholder: To be populated once JT-VAE integration is complete. Will provide latent-space perturbation for molecular modification.)*
+JT-VAE is integrated through an isolated subprocess wrapper. The project-facing class lives in `ml_based/jt_vae/jtvae_modifier.py`, while the actual model execution happens in `ml_based/jt_vae/backend_infer.py` using a separate interpreter configured by `JT_VAE_PYTHON`.
+
+This keeps the main project environment free from JT-VAE's dependency stack while preserving a simple `.modify()` interface for callers.
+
+### Backend Layout
+
+* **Vendored backend:** `ml_based/jt_vae/vendor/JTNN-VAE/`
+* **Wrapper:** `ml_based/jt_vae/jtvae_modifier.py`
+* **Backend shim:** `ml_based/jt_vae/backend_infer.py`
+* **Setup script:** `scripts/setup_jt_vae_env.sh`
+
+### Required Runtime Assets
+
+The JT-VAE integration expects the following runtime inputs:
+
+```bash
+export JT_VAE_PYTHON=/path/to/.venv-jtvae/bin/python
+export JT_VAE_HOME=/path/to/src/modifications/ml_based/jt_vae/vendor/JTNN-VAE
+export JT_VAE_VOCAB_PATH=/path/to/src/modifications/ml_based/jt_vae/vendor/JTNN-VAE/data/moses/vocab.txt
+export JT_VAE_MODEL_PATH=/absolute/path/to/pretrained/model.iter-XXXX
+```
+
+The vendored backend includes vocabulary files, but pretrained checkpoints are not shipped with this repository and must be provided separately.
+
+### Usage
+
+```python
+from src.modifications.ml_based.jt_vae import JTVAEModifier
+
+M = JTVAEModifier()
+variants = M.modify("CCc1nn(C)c2ccc(cc12)C(=O)NCc3ccccc3", n=20)
+```
+
+### Implementation Notes
+
+* The current integration uses seed-conditioned latent perturbation: it encodes the input molecule, perturbs the latent vectors with Gaussian noise, and decodes unique candidates.
+* The vendored backend contains hardcoded `.cuda()` calls, so the backend shim forces a CPU-safe execution path for reliability.
+* If `uv` cannot resolve a working backend environment on a given machine, a dedicated conda environment can still be used as long as `JT_VAE_PYTHON` points to its interpreter.
 
 **[END COPY]**

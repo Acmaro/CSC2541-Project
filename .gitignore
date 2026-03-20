@@ -15,3 +15,5 @@ token.json
 .credentials/
 
 .venv/
+
+.venv-jtvae/
