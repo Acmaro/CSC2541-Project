@@ -23,7 +23,12 @@ from src.utils.download_chembl import download, sample
 
 ROOT = Path(__file__).parent.parent
 DATA_DIR = ROOT / "data"
-CHEMBL_CSV = DATA_DIR / "chembl_filtered.csv"
+# Accept chembl_full.csv as a drop-in for chembl_filtered.csv (same schema).
+_CHEMBL_CSV_CANDIDATES = [
+    DATA_DIR / "chembl_filtered.csv",
+    DATA_DIR / "chembl_full.csv",
+]
+CHEMBL_CSV = next((p for p in _CHEMBL_CSV_CANDIDATES if p.exists()), _CHEMBL_CSV_CANDIDATES[0])
 OUT_DIR = DATA_DIR / "mmpdb_db"
 SMI_FILE = OUT_DIR / "chembl_50k.smi"
 FRAG_FILE = OUT_DIR / "chembl_50k.fragments"
@@ -78,7 +83,9 @@ def main():
         import pandas as pd
         df = pd.read_csv(tmp_csv)
         smiles_list = df["SMILES"].dropna().tolist()
-        SMI_FILE.write_text("\n".join(smiles_list) + "\n")
+        # mmpdb fragment requires "SMILES ID" (two whitespace-delimited fields).
+        lines = [f"{smi}\tmol_{i}" for i, smi in enumerate(smiles_list)]
+        SMI_FILE.write_text("\n".join(lines) + "\n")
         tmp_csv.unlink(missing_ok=True)
         print(f"Wrote {len(smiles_list):,} SMILES to {SMI_FILE}")
     else:
