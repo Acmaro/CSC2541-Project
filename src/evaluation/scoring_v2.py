@@ -51,7 +51,7 @@ from typing import Any, Optional
 import numpy as np
 import pandas as pd
 from rdkit import Chem, DataStructs, RDLogger
-from rdkit.Chem import AllChem, Descriptors, rdMolDescriptors
+from rdkit.Chem import AllChem, Descriptors, QED, rdMolDescriptors
 
 RDLogger.DisableLog("rdApp.*")
 
@@ -287,15 +287,17 @@ def score_variant(
     if mol is None:
         return None
 
-    tan = tanimoto_to_spec(mol, spec)
-    des = desirability(mol, spec)
-    esp = espsim_score(mol, spec) if compute_espsim else None
+    tan  = tanimoto_to_spec(mol, spec)
+    des  = desirability(mol, spec)
+    esp  = espsim_score(mol, spec) if compute_espsim else None
+    qed  = round(QED.qed(mol), 4)
 
     return {
         "variant_smiles":    variant_smi,
         "spec_smiles":       spec.spec_smiles,
         "tanimoto":          round(tan, 4),
         "desirability":      round(des.score, 4),
+        "qed":               qed,
         "mw_score":          round(des.mw_score, 4),
         "clogp_score":       round(des.clogp_score, 4),
         "tpsa_score":        round(des.tpsa_score, 4),
